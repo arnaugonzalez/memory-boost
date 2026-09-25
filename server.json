@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.arnaugonzalez/memory-boost",
+  "title": "memory-boost",
+  "description": "Markdown memory for coding agents that audits itself: drift reports and session digests.",
+  "repository": {
+    "url": "https://github.com/arnaugonzalez/memory-boost",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/arnaugonzalez/memory-boost",
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "memory-boost",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "packageArguments": [{ "type": "positional", "value": "serve" }],
+      "transport": { "type": "stdio" }
+    }
+  ]
+}

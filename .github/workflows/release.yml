@@ -1,0 +1,154 @@
+# Push a tag vX.Y.Z whose number matches pyproject.toml: tests, builds, installs the wheel on
+# Linux and macOS, publishes to PyPI with Trusted Publishing (no token stored anywhere) after a
+# manual approval on the `pypi` environment, creates the GitHub release from CHANGELOG.md, then
+# installs from PyPI and smoke-tests again.
+#
+# Hardening: actions pinned to commit SHAs, no default token permissions, no persisted git
+# credentials, no dependency cache (a poisoned cache could reach the publish job).
+name: Release
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+concurrency:            # never two releases at once; never cancel one half-way
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
+        with:
+          python-version: "3.12"
+          enable-cache: false
+      - name: Tag matches pyproject version
+        run: |
+          v=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
+          test "${GITHUB_REF_NAME#v}" = "$v" || { echo "tag $GITHUB_REF_NAME != version $v"; exit 1; }
+      - name: CHANGELOG has a dated entry for this version
+        run: grep -qE "^## ${GITHUB_REF_NAME#v} — [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md
+      - run: uv sync && uvx ruff check . && uv run pytest -q
+      - run: uv build && uvx twine check dist/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: dist
+          path: dist/
+
+  smoke:
+    needs: build
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
+        with:
+          enable-cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: dist
+          path: dist/
+      - run: uv tool install dist/*.whl && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: bash scripts/smoke.sh
+
+  publish:
+    needs: smoke
+    runs-on: ubuntu-latest
+    environment: pypi          # requires the maintainer's approval (set by go-public.sh)
+    permissions:
+      id-token: write          # Trusted Publishing: short-lived OIDC token, nothing stored
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: dist
+          path: dist/
+      - name: Release notes from CHANGELOG.md
+        run: awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## "v" " {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+      - run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # Official MCP registry (Glama, PulseMCP, mcp.so and others index from it). Runs after PyPI has
+  # the release, because the registry verifies ownership from the `mcp-name:` line of the README
+  # published there. The publisher binary is pinned and checksum-verified like every action here.
+  mcp-registry:
+    needs: verify-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write          # GitHub OIDC login to the registry; nothing stored
+    env:
+      PUBLISHER_VERSION: "1.8.1"
+      PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install mcp-publisher (pinned, checksum-verified)
+        run: |
+          curl -sSfL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v${PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+      - name: server.json matches the tag
+        run: |
+          python3 -c 'import json,os; d=json.load(open("server.json")); v=os.environ["GITHUB_REF_NAME"][1:]; assert d["version"]==v and d["packages"][0]["version"]==v, d["version"]'
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish
+
+  verify-pypi:
+    needs: publish
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
+        with:
+          enable-cache: false
+      - name: Install from PyPI (retry while the index propagates)
+        run: |
+          for _ in $(seq 1 10); do
+            uv tool install --refresh "memory-boost==${GITHUB_REF_NAME#v}" && break
+            sleep 30
+          done
+          command -v memory-boost >/dev/null || test -x "$HOME/.local/bin/memory-boost"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: The README quickstart form (uvx, no install) resolves the release
+        run: uvx --refresh "memory-boost@${GITHUB_REF_NAME#v}" --version
+      - run: bash scripts/smoke.sh

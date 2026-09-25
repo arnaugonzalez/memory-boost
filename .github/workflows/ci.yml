@@ -1,0 +1,54 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+permissions: {}   # every job states what it needs; nothing here writes
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.11", "3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync
+      - run: uvx ruff check .
+      - run: uv run pytest
+      - run: uv build && uvx twine check dist/*
+
+  # G4 automated: install the built wheel as a stranger would and run the README quickstart.
+  smoke:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
+        with:
+          python-version: "3.12"
+      - run: uv build
+      - run: uv tool install dist/*.whl && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: bash scripts/smoke.sh

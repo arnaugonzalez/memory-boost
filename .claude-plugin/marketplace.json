@@ -1,0 +1,12 @@
+{
+  "name": "memory-boost",
+  "description": "memory-boost: memory for coding agents that reviews itself.",
+  "owner": { "name": "Arnau González", "url": "https://github.com/arnaugonzalez" },
+  "plugins": [
+    {
+      "name": "memory-boost",
+      "source": "./",
+      "description": "Markdown memory over MCP, a session-start brief, drift reports, session digests and /retro lessons."
+    }
+  ]
+}
