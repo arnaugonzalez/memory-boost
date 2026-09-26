@@ -1,0 +1,11 @@
+flowchart LR
+  A[Claude Code / Codex / Cursor] -->|MCP stdio| S[memory-boost serve]
+  H[SessionStart hook] --> B[memory-boost hook]
+  S --> W[(wiki/*.md + log.md)]
+  S --> K[(checkpoints/*.json)]
+  D[memory-boost drift] --> W
+  D --> K
+  M[memory-boost mine] --> T[(~/.claude/projects/*.jsonl)]
+  D --> R[report + brief injection]
+  M --> R
+  W -.incremental refresh.-> I[(SQLite FTS5)]

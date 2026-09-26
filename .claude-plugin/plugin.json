@@ -1,6 +1,6 @@
 {
   "name": "memory-boost",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Memory that reviews itself: a markdown wiki your agents read and write over MCP, plus drift reports on that memory and local digests of your own sessions.",
   "author": { "name": "Arnau González", "url": "https://github.com/arnaugonzalez" },
   "homepage": "https://github.com/arnaugonzalez/memory-boost",
@@ -10,7 +10,7 @@
   "mcpServers": {
     "memory": {
       "command": "uvx",
-      "args": ["--from", "${CLAUDE_PLUGIN_ROOT}", "memory-boost", "serve"]
+      "args": ["--quiet", "--from", "${CLAUDE_PLUGIN_ROOT}", "memory-boost", "serve"]
     }
   },
   "hooks": {
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uvx --from \"${CLAUDE_PLUGIN_ROOT}\" memory-boost hook session-start",
+            "command": "uvx --quiet --from \"${CLAUDE_PLUGIN_ROOT}\" memory-boost hook session-start",
             "timeout": 120
           }
         ]

@@ -1,6 +1,6 @@
 [project]
 name = "memory-boost"
-version = "0.1.0"
+version = "0.1.1"
 description = "Memory that reviews itself: a markdown wiki for coding agents over MCP, plus drift reports on the wiki and digests of your own sessions."
 readme = "README.md"
 license = "MIT"

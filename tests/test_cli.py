@@ -4,7 +4,7 @@ import subprocess
 import sys
 from importlib import resources
 
-from memory_boost import cli, core
+from memory_boost import __version__, cli, core
 
 
 def run(args, stdin="", env=None):
@@ -14,7 +14,7 @@ def run(args, stdin="", env=None):
 
 def test_help_and_version(home):
     assert run(["--help"]).returncode == 0
-    assert "0.1.0" in run(["--version"]).stdout
+    assert __version__ in run(["--version"]).stdout
 
 
 def test_init_example_on_fresh_home(tmp_path):

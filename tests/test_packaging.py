@@ -24,7 +24,7 @@ def test_marketplace_lists_this_plugin_from_the_repo_root():
 def test_plugin_runs_its_own_checkout_and_every_skill_exists():
     plugin = _json(".claude-plugin/plugin.json")
     args = plugin["mcpServers"]["memory"]["args"]
-    assert args[:2] == ["--from", "${CLAUDE_PLUGIN_ROOT}"] and args[-1] == "serve"
+    assert args[:3] == ["--quiet", "--from", "${CLAUDE_PLUGIN_ROOT}"] and args[-1] == "serve"
     hook = plugin["hooks"]["SessionStart"][0]["hooks"][0]["command"]
     assert '"${CLAUDE_PLUGIN_ROOT}"' in hook and hook.endswith("hook session-start")
     for skill in (ROOT / "skills").iterdir():
@@ -40,3 +40,19 @@ def test_mcp_registry_entry_matches_package_and_readme():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert f"<!-- mcp-name: {server['name']} -->" in readme  # the registry's ownership check
     assert len(server["description"]) <= 100
+
+
+def test_readme_has_no_relative_links_or_images():
+    """PyPI and the MCP registry render README.md outside the repo: relative paths break there."""
+    import re
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    targets = re.findall(r'(?:src|href)="([^"]+)"', readme) + re.findall(r"\]\(([^)]+)\)", readme)
+    relative = [t for t in targets if not t.startswith(("http://", "https://", "#", "mailto:"))]
+    assert relative == []
+
+
+def test_version_is_the_same_everywhere():
+    from memory_boost import __version__
+    version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    assert __version__ == version
+    assert f"## {version} " in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")

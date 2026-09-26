@@ -8,12 +8,12 @@
     "source": "github"
   },
   "websiteUrl": "https://github.com/arnaugonzalez/memory-boost",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "memory-boost",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "runtimeHint": "uvx",
       "packageArguments": [{ "type": "positional", "value": "serve" }],
       "transport": { "type": "stdio" }

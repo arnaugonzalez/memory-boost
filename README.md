@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="memory-boost drift, mine and lessons running on the bundled example data" width="92%"><br>
+  <img src="https://raw.githubusercontent.com/arnaugonzalez/memory-boost/main/docs/demo.gif" alt="memory-boost drift, mine and lessons running on the bundled example data" width="92%"><br>
   <sub>drift, mine and lessons on the bundled example data · everything runs locally</sub>
 </p>
 
@@ -149,19 +149,9 @@ Reports end with a `next:` line naming the exact command to run.
 
 ## How it works
 
-```mermaid
-flowchart LR
-  A[Claude Code / Codex / Cursor] -->|MCP stdio| S[memory-boost serve]
-  H[SessionStart hook] --> B[memory-boost hook]
-  S --> W[(wiki/*.md + log.md)]
-  S --> K[(checkpoints/*.json)]
-  D[memory-boost drift] --> W
-  D --> K
-  M[memory-boost mine] --> T[(~/.claude/projects/*.jsonl)]
-  D --> R[report + brief injection]
-  M --> R
-  W -.incremental refresh.-> I[(SQLite FTS5)]
-```
+<img src="https://raw.githubusercontent.com/arnaugonzalez/memory-boost/main/docs/architecture.png" alt="Agents talk to memory-boost serve over MCP; the hook injects the brief; drift reads the wiki and checkpoints; mine reads local transcripts; both feed reports and the brief" width="100%">
+
+<sub>Source: [docs/architecture.mmd](https://github.com/arnaugonzalez/memory-boost/blob/main/docs/architecture.mmd)</sub>
 
 The project is resolved from the working directory name (`~/work/acme-api` → `projects/acme-api.md`);
 map other names in `aliases.json`. Under 1,600 lines of Python, one dependency (`mcp`), no
@@ -200,7 +190,7 @@ agents already wrote down.
 - `mine` understands Claude Code transcripts today. Codex is on the roadmap.
 - Reports are as good as the wiki: an empty wiki yields an empty `drift`.
 - Single user, local files. Linux and macOS; Windows untested.
-- The wiki is read by your agents as instructions. Only use a wiki you trust; see [SECURITY.md](SECURITY.md).
+- The wiki is read by your agents as instructions. Only use a wiki you trust; see [SECURITY.md](https://github.com/arnaugonzalez/memory-boost/blob/main/SECURITY.md).
 
 ## License
 
