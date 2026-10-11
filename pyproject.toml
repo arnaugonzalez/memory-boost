@@ -19,6 +19,9 @@ classifiers = [
 ]
 dependencies = ["mcp>=1.2,<2"]
 
+[project.optional-dependencies]
+semantic = ["sqlite-vec>=0.1.6"]
+
 [project.scripts]
 memory-boost = "memory_boost.cli:main"
 

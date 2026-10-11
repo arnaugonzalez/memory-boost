@@ -3,6 +3,10 @@
 ## Unreleased
 
 - recall: freshness is now a down-weight on the bm25 score instead of a hard sort, so a strong match is no longer buried under fresher weak ones.
+- Optional semantic recall: `pip install "memory-boost[semantic]"` plus `MEMORY_BOOST_SEMANTIC=1` and a local
+  `embeddinggemma` (Ollama) adds vector search via sqlite-vec. Default mode when on is `hybrid`; `recall --mode`
+  and `MEMORY_BOOST_RECALL_MODE` select `fts`, `semantic` or `hybrid`. Falls back to full-text if Ollama is down.
+  The base install is unchanged.
 
 ## 0.1.1 — 2026-09-26
 

@@ -9,10 +9,13 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import logging
 import os
 import re
 import sqlite3
 from pathlib import Path
+
+from memory_boost import semantic
 
 # --- locations -------------------------------------------------------------
 #
@@ -367,6 +370,11 @@ def refresh_index(force: bool = False) -> dict:
             conn.execute("DELETE FROM docs WHERE path=?", (p,))
             conn.execute("DELETE FROM files WHERE path=?", (p,))
     conn.commit()
+    if semantic.enabled():
+        try:
+            stats["embedded"] = semantic.sync(conn)
+        except semantic.SemanticError as e:
+            warnings.append(f"semantic index skipped: {e}")
     conn.close()
     stats["warnings"] = warnings
     return stats
@@ -377,10 +385,17 @@ def _fts_query(query: str) -> str:
     return " OR ".join(f'"{t}"' for t in terms) if terms else '""'
 
 
-def recall(query: str, project: str | None = None, limit: int = 8,
-           include_historic: bool = False) -> list[dict]:
-    """Full-text search over pages and log entries, ranked by bm25, with stale knowledge down-weighted."""
-    refresh_index()
+RECALL_MODES = ("fts", "semantic", "hybrid")
+RRF_K = 60
+
+
+def _hit(ref, path, kind, proj, title, date, fr, extract) -> dict:
+    return {"ref": ref, "path": path, "kind": kind, "project": proj, "title": title,
+            "date": date, "freshness": fr, "extract": extract}
+
+
+def _fts_hits(conn: sqlite3.Connection, query: str, project: str | None,
+              include_historic: bool, n: int) -> list[dict]:
     sql = ("SELECT d.ref, d.path, d.kind, d.project, d.title, d.date, d.freshness, "
            "snippet(docs_fts, 1, '', '', '…', 12), bm25(docs_fts) "
            "FROM docs_fts JOIN docs d ON d.id = docs_fts.rowid WHERE docs_fts MATCH ?")
@@ -391,16 +406,71 @@ def recall(query: str, project: str | None = None, limit: int = 8,
     if not include_historic:
         sql += " AND d.freshness != 'historic'"
     sql += " ORDER BY bm25(docs_fts) LIMIT ?"
-    params.append(limit * 3)
+    params.append(n)
+    rows = conn.execute(sql, params).fetchall()
+    rows.sort(key=lambda r: r[8] * FRESHNESS_WEIGHT.get(r[6], 1.0))
+    return [_hit(ref, path, kind, proj, title, date, fr, snippet)
+            for ref, path, kind, proj, title, date, fr, snippet, _bm25 in rows]
+
+
+def _semantic_hits(conn: sqlite3.Connection, query: str, project: str | None,
+                   include_historic: bool, n: int) -> list[dict]:
+    hits = []
+    for doc_id, dist in semantic.search(conn, query, n):
+        ref, path, kind, proj, title, date, fr, body = conn.execute(
+            "SELECT ref, path, kind, project, title, date, freshness, body FROM docs WHERE id = ?",
+            (doc_id,)).fetchone()
+        if project and proj != norm_project(project):
+            continue
+        if not include_historic and fr == "historic":
+            continue
+        extract = " ".join((body or "").split())[:160]
+        weight = FRESHNESS_WEIGHT.get(fr, 1.0)
+        hits.append((dist / weight, _hit(ref, path, kind, proj, title, date, fr, extract)))
+    hits.sort(key=lambda h: h[0])
+    return [h for _, h in hits]
+
+
+def _hybrid_hits(conn: sqlite3.Connection, query: str, project: str | None,
+                 include_historic: bool, n: int) -> list[dict]:
+    """Weighted reciprocal-rank fusion: semantic counts double, bm25 once."""
+    fts = _fts_hits(conn, query, project, include_historic, n)
+    vec = _semantic_hits(conn, query, project, include_historic, n)
+    fused: dict[str, float] = {}
+    first: dict[str, dict] = {}
+    for weight, ranked in ((1.0, fts), (2.0, vec)):
+        for rank, h in enumerate(ranked, 1):
+            first.setdefault(h["ref"], h)
+            fused[h["ref"]] = fused.get(h["ref"], 0.0) + weight / (RRF_K + rank)
+    return [first[ref] for ref in sorted(fused, key=lambda r: -fused[r])]
+
+
+def recall(query: str, project: str | None = None, limit: int = 8,
+           include_historic: bool = False, mode: str | None = None) -> list[dict]:
+    """Search pages and log entries, with stale knowledge down-weighted.
+
+    mode: "fts" (bm25), "semantic" (EmbeddingGemma vectors) or "hybrid" (RRF of both). Default:
+    MEMORY_BOOST_RECALL_MODE, else "hybrid" when semantic.enabled(), else "fts". Semantic modes
+    fall back to "fts" with a logged warning when Ollama or sqlite-vec is unavailable.
+    """
+    refresh_index()
+    mode = mode or os.environ.get("MEMORY_BOOST_RECALL_MODE") or ("hybrid" if semantic.enabled() else "fts")
+    if mode not in RECALL_MODES:
+        raise ValueError(f"unknown recall mode {mode!r}; use one of {', '.join(RECALL_MODES)}")
     conn = _connect()
     try:
-        rows = conn.execute(sql, params).fetchall()
+        if mode == "fts":
+            hits = _fts_hits(conn, query, project, include_historic, limit * 3)
+        else:
+            search = _semantic_hits if mode == "semantic" else _hybrid_hits
+            try:
+                hits = search(conn, query, project, include_historic, limit * 3)
+            except semantic.SemanticError as e:
+                logging.warning("semantic recall unavailable, using fts: %s", e)
+                hits = _fts_hits(conn, query, project, include_historic, limit * 3)
     finally:
         conn.close()
-    rows.sort(key=lambda r: r[8] * FRESHNESS_WEIGHT.get(r[6], 1.0))
-    return [{"ref": ref, "path": path, "kind": kind, "project": proj, "title": title,
-             "date": date, "freshness": fr, "extract": snippet}
-            for ref, path, kind, proj, title, date, fr, snippet, _bm25 in rows[:limit]]
+    return hits[:limit]
 
 
 # --- brief (the SessionStart payload) ----------------------------------------

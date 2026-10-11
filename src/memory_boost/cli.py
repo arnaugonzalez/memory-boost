@@ -129,7 +129,7 @@ def cmd_brief(args):
 
 def cmd_recall(args):
     results = core.recall(args.query, project=args.project, limit=args.limit,
-                          include_historic=args.include_historic)
+                          include_historic=args.include_historic, mode=args.mode)
     if args.json:
         _json_out(results)
         return
@@ -297,6 +297,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--limit", type=int, default=8, help="max results")
     s.add_argument("--include-historic", action="store_true",
                    help="also return historic / superseded pages")
+    s.add_argument("--mode", choices=core.RECALL_MODES, default=None,
+                   help="fts | semantic | hybrid (default: MEMORY_BOOST_RECALL_MODE, else hybrid when on)")
     _json_flag(s)
     s.set_defaults(func=cmd_recall)
 

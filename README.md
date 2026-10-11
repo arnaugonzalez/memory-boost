@@ -155,7 +155,25 @@ Reports end with a `next:` line naming the exact command to run.
 
 The project is resolved from the working directory name (`~/work/acme-api` → `projects/acme-api.md`);
 map other names in `aliases.json`. Under 1,600 lines of Python, one dependency (`mcp`), no
-embeddings, no daemon.
+embeddings unless you opt into semantic recall, no daemon.
+
+## Semantic recall (optional)
+
+Off by default: `memory_recall` is full-text only and the base install stays one dependency.
+To also match paraphrases and other languages, run a local embedding model:
+
+```bash
+pip install "memory-boost[semantic]"     # adds sqlite-vec
+ollama pull embeddinggemma
+export MEMORY_BOOST_SEMANTIC=1
+memory-boost index                       # embeds the wiki once; later runs embed only changes
+```
+
+Default mode when on is `hybrid` (full-text and vectors fused by weighted reciprocal rank); override
+with `MEMORY_BOOST_RECALL_MODE=fts|semantic|hybrid` or `memory-boost recall --mode`. If Ollama is down,
+recall falls back to full-text and logs a warning. On a private 64-query set (39 literal, 25 paraphrase)
+with a warm index on CPU: paraphrase nDCG@10 0.46 to 0.76, literal 0.80 to 0.85, p50 about 110 ms per query.
+The query set is not published.
 
 ## Configuration
 
