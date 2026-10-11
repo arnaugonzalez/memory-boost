@@ -101,9 +101,11 @@ it needed a new tool: the data was already on disk. It needed a reader.
 ## What it is
 
 1. **A wiki you own.** `projects/*.md`, `decisions/*.md`, `concepts/*.md`, `log.md`. Plain
-   markdown; edit by hand, keep it in git. SQLite FTS5 index as a disposable cache. Eight MCP
+   markdown; edit by hand, keep it in git. SQLite FTS5 index as a disposable cache. Nine MCP
    tools for any harness: `memory_brief`, `memory_recall`, `memory_page`, `memory_save`,
-   `memory_checkpoint`, `memory_resume`, `memory_drift`, `memory_lesson`.
+   `memory_checkpoint`, `memory_resume`, `memory_drift`, `memory_lesson`, `memory_shelf`.
+   `memory_shelf` (CLI: `memory-boost shelf "idea"`) appends a dated one-line idea to
+   `concepts/idea-shelf.md` without the agent reading the page back.
 2. **Freshness as data.** Decisions carry `status:` and `review_by:`. Search results are tagged
    `current / unclassified / review / historic / superseded`, current first.
 3. **Session checkpoints** that survive `/compact`, with one line per *other* active session on

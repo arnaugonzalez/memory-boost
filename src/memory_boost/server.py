@@ -51,6 +51,13 @@ def memory_save(project: str, action: str, detail: str | None = None, result: st
 
 
 @mcp.tool()
+def memory_shelf(text: str, to: str = "concepts/idea-shelf", project: str = "") -> str:
+    """Append a dated one-line idea to a wiki page without reading it."""
+    out = core.shelf(text, page=to, project=project or None)
+    return f"shelved: {out['page']} | {out['line']}"
+
+
+@mcp.tool()
 def memory_checkpoint(project: str, session_id: str, task: str, done: list[str] | None = None,
                       next_step: str | None = None, files: list[str] | None = None,
                       notes: list[str] | None = None, status: str = "active",

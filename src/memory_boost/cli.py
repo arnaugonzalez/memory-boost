@@ -159,6 +159,10 @@ def cmd_save(args):
     print(f"saved: {slug} | {args.action}")
 
 
+def cmd_shelf(args):
+    print(core.shelf(args.text, page=args.to, project=args.project)["line"])
+
+
 def _split(v):
     return [x.strip() for x in v.split("||") if x.strip()] if v else None
 
@@ -316,6 +320,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--detail", default=None, help="longer markdown detail")
     s.add_argument("--pending", default=None, help="what is left to do")
     s.set_defaults(func=cmd_save)
+
+    s = sub.add_parser("shelf", help="park a dated one-line idea in a wiki page without reading it")
+    s.add_argument("text", help="the idea (newlines are flattened)")
+    s.add_argument("--to", default="concepts/idea-shelf",
+                   help="page as <concepts|projects|decisions>/<name> (default: concepts/idea-shelf)")
+    s.add_argument("--project", default=None, help="tag the line with a project")
+    s.set_defaults(func=cmd_shelf)
 
     s = sub.add_parser("checkpoint", help="save/merge a session checkpoint (lists split by '||')")
     s.add_argument("--project", required=True, help="project slug")

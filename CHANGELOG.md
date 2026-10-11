@@ -7,6 +7,8 @@
   `embeddinggemma` (Ollama) adds vector search via sqlite-vec. Default mode when on is `hybrid`; `recall --mode`
   and `MEMORY_BOOST_RECALL_MODE` select `fts`, `semantic` or `hybrid`. Falls back to full-text if Ollama is down.
   The base install is unchanged.
+- `shelf`: park a one-line idea in a wiki page (default `concepts/idea-shelf.md`) from the CLI
+  (`memory-boost shelf "..."`) or the new `memory_shelf` MCP tool, without reading the page.
 
 ## 0.1.1 — 2026-09-26
 

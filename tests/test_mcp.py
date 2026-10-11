@@ -7,7 +7,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 TOOLS = {"memory_brief", "memory_recall", "memory_page", "memory_save", "memory_drift", "memory_lesson",
-         "memory_checkpoint", "memory_resume"}
+         "memory_checkpoint", "memory_resume", "memory_shelf"}
 
 
 async def _session_calls():
@@ -25,6 +25,7 @@ async def _session_calls():
         out["ckpt"] = await s.call_tool("memory_checkpoint", {"project": "acme-api", "session_id": "t1",
                                                               "task": "probe", "done": ["x"]})
         out["resume"] = await s.call_tool("memory_resume", {"project": "acme-api", "session_id": "t1"})
+        out["shelf"] = await s.call_tool("memory_shelf", {"text": "mcp idea", "project": "acme-api"})
         out["bad"] = await s.call_tool("memory_page", {"name": "../../etc/passwd"})
         return tools, out
 
@@ -45,4 +46,5 @@ def test_all_tools_over_stdio(home):
     assert "integer cents" in text(out["page"])
     assert "done=1" in text(out["ckpt"])
     assert "**Task:** probe" in text(out["resume"])
+    assert text(out["shelf"]) == "shelved: concepts/idea-shelf.md | - [2026-09-24] (acme-api) mcp idea"
     assert out["bad"].isError and "invalid page name" in text(out["bad"])

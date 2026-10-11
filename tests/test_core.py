@@ -198,3 +198,45 @@ def test_checkpoint_validation(home):
     core._ckpt_path("acme-api", "s").write_text("{broken")
     with pytest.raises(ValueError, match="corrupt"):
         core.save_checkpoint("acme-api", "s", "t")
+
+
+def test_shelf_creates_page_then_appends_in_order(home):
+    core.shelf("first idea")
+    res = core.shelf("second idea", project="acme_api")
+    assert res == {"page": "concepts/idea-shelf.md", "line": "- [2026-09-24] (acme-api) second idea"}
+    text = (home / "wiki/concepts/idea-shelf.md").read_text(encoding="utf-8")
+    assert text.startswith("---\ntitle: idea-shelf\ncreated: 2026-09-24\nupdated: 2026-09-24\n"
+                           "type: concept\n---\n")
+    assert "# Idea shelf" in text
+    assert text.endswith("- [2026-09-24] first idea\n- [2026-09-24] (acme-api) second idea\n")
+
+
+def test_shelf_appends_to_existing_page_without_touching_the_rest(home):
+    page = home / "wiki/projects/acme-api.md"
+    before = page.read_text(encoding="utf-8")
+    core.shelf("sqlite is enough", page="projects/acme-api")
+    after = page.read_text(encoding="utf-8")
+    assert "updated: 2026-09-24" in after.split("---\n", 2)[1]
+    assert after.split("---\n", 2)[2].startswith(before.split("---\n", 2)[2])
+    assert after.endswith("- [2026-09-24] sqlite is enough\n")
+
+
+@pytest.mark.parametrize("page", ["../x", "concepts/../../x", "log", "context/foo", "concepts/a/b",
+                                  "concepts/", "/etc/passwd"])
+def test_shelf_rejects_pages_outside_the_wiki_dirs(home, page):
+    with pytest.raises(ValueError):
+        core.shelf("x", page=page)
+    assert not (home / "etc").exists()
+    assert not (home / "wiki/concepts/idea-shelf.md").exists()
+
+
+def test_shelf_flattens_multiline_and_caps_length(home):
+    res = core.shelf("line one\nline two\n" + "x" * 900)
+    assert "\n" not in res["line"]
+    assert res["line"].startswith("- [2026-09-24] line one line two xxx")
+    assert len(res["line"]) == len("- [2026-09-24] ") + 500
+
+
+def test_shelved_idea_is_recallable_right_away(home):
+    core.shelf("quantize the embedding cache to int8")
+    assert any(r["path"].endswith("idea-shelf.md") for r in core.recall("quantize embedding cache"))

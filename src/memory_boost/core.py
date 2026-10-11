@@ -603,6 +603,49 @@ def save(project: str, action: str, detail: str | None = None, result: str = "ok
     return slug
 
 
+SHELF_DIRS = ("concepts", "projects", "decisions")
+SHELF_TEXT_CAP = 500
+
+
+def _set_updated(text: str, today: str) -> str:
+    m = FRONTMATTER_RE.match(text)
+    if not m:
+        return f"---\nupdated: {today}\n---\n{text}"
+    head = m.group(1).splitlines()
+    if any(ln.startswith("updated:") for ln in head):
+        head = [f"updated: {today}" if ln.startswith("updated:") else ln for ln in head]
+    else:
+        head.append(f"updated: {today}")
+    return "---\n" + "\n".join(head) + "\n---\n" + text[m.end():]
+
+
+def shelf(text: str, page: str = "concepts/idea-shelf", project: str | None = None) -> dict:
+    """Append a dated one-line idea to a wiki page without the caller reading the page."""
+    rel_dir, _, name = page.removesuffix(".md").partition("/")
+    if rel_dir not in SHELF_DIRS or not name:
+        raise ValueError(f"shelf page must be <{'|'.join(SHELF_DIRS)}>/<name>: {page!r}")
+    slug = safe_slug(name, "shelf page")
+    idea = _one_line(text)[:SHELF_TEXT_CAP]
+    if not idea:
+        raise ValueError("idea is empty")
+    today = _today()
+    tag = f" ({norm_project(project)})" if project else ""
+    line = f"- [{today}]{tag} {idea}"
+    path = wiki_dir() / rel_dir / f"{slug}.md"
+    if path.exists():
+        body = _set_updated(path.read_text(encoding="utf-8"), today)
+    else:
+        body = (f"---\ntitle: {slug}\ncreated: {today}\nupdated: {today}\ntype: concept\n---\n"
+                "# Idea shelf\n\n")
+    if not body.endswith("\n"):
+        body += "\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".md.tmp")
+    tmp.write_text(body + line + "\n", encoding="utf-8")
+    tmp.replace(path)  # atomic: a concurrent recall never reads half a page
+    return {"page": f"{rel_dir}/{slug}.md", "line": line}
+
+
 def page_path(name: str) -> tuple[str, Path] | None:
     """(kind, path) of the wiki page called `name`, or None if no section has it."""
     slug = safe_slug(name, "page name")
