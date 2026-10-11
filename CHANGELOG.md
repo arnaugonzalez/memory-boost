@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- recall: freshness is now a down-weight on the bm25 score instead of a hard sort, so a strong match is no longer buried under fresher weak ones.
+
 ## 0.1.1 — 2026-09-26
 
 - README renders on PyPI and in the MCP registry: the demo GIF, the architecture diagram (now an

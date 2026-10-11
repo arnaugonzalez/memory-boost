@@ -77,6 +77,8 @@ HISTORY_SUFFIXES = ("-history", "-historial")
 
 FRESHNESS = ("current", "unclassified", "review", "historic", "superseded")
 FRESHNESS_ORDER = {v: i for i, v in enumerate(FRESHNESS)}
+# bm25() is negative (more negative = better): a weight < 1 pulls the score toward 0 and drops the chunk.
+FRESHNESS_WEIGHT = {"current": 1.0, "unclassified": 1.0, "review": 0.85, "historic": 0.5, "superseded": 0.3}
 # Frontmatter `status:` values accepted as aliases (wikis written in Spanish).
 STATUS_ALIASES = {"vigente": "current", "revisar": "review", "historico": "historic",
                   "histórico": "historic"}
@@ -377,11 +379,10 @@ def _fts_query(query: str) -> str:
 
 def recall(query: str, project: str | None = None, limit: int = 8,
            include_historic: bool = False) -> list[dict]:
-    """Full-text search over pages and log entries, ranked by bm25 and then
-    re-ordered so current knowledge comes before historic/superseded."""
+    """Full-text search over pages and log entries, ranked by bm25, with stale knowledge down-weighted."""
     refresh_index()
     sql = ("SELECT d.ref, d.path, d.kind, d.project, d.title, d.date, d.freshness, "
-           "snippet(docs_fts, 1, '', '', '…', 12) "
+           "snippet(docs_fts, 1, '', '', '…', 12), bm25(docs_fts) "
            "FROM docs_fts JOIN docs d ON d.id = docs_fts.rowid WHERE docs_fts MATCH ?")
     params: list = [_fts_query(query)]
     if project:
@@ -396,10 +397,10 @@ def recall(query: str, project: str | None = None, limit: int = 8,
         rows = conn.execute(sql, params).fetchall()
     finally:
         conn.close()
-    rows.sort(key=lambda r: FRESHNESS_ORDER.get(r[6], 1))
+    rows.sort(key=lambda r: r[8] * FRESHNESS_WEIGHT.get(r[6], 1.0))
     return [{"ref": ref, "path": path, "kind": kind, "project": proj, "title": title,
              "date": date, "freshness": fr, "extract": snippet}
-            for ref, path, kind, proj, title, date, fr, snippet in rows[:limit]]
+            for ref, path, kind, proj, title, date, fr, snippet, _bm25 in rows[:limit]]
 
 
 # --- brief (the SessionStart payload) ----------------------------------------

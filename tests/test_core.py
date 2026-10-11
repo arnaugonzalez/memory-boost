@@ -39,13 +39,21 @@ def test_recall_drops_deleted_files(home):
 
 
 def test_freshness_ordering_and_historic_filter(home):
-    res = core.recall("money float cents", limit=10)
-    fresh = [r["freshness"] for r in res]
-    assert fresh == sorted(fresh, key=core.FRESHNESS_ORDER.get)
-    assert "superseded" in fresh
+    fresh = [r["freshness"] for r in core.recall("money float cents", limit=10)]
+    # No `current` page matches this query; the superseded page is bm25-best but must rank below the rest.
+    assert "superseded" in fresh and fresh[0] != "superseded"
     hist = core.recall("Flask", include_historic=True)
     assert any(r["freshness"] == "historic" for r in hist)
     assert all(r["freshness"] != "historic" for r in core.recall("Flask"))
+
+
+def test_strong_match_beats_fresher_weak_match(home):
+    (home / "wiki/decisions/weak.md").write_text(
+        "---\ntitle: weak\n---\n# weak\n\nzanahoria morada, zanahoria morada, zanahoria morada.\n")
+    (home / "wiki/decisions/fresh.md").write_text(
+        "---\ntitle: fresh\nstatus: current\n---\n# fresh\n\n"
+        + "Texto largo sin relación con el tema. " * 20 + "Usamos zanahoria en la receta.\n")
+    assert core.recall("zanahoria morada")[0]["path"].endswith("weak.md")
 
 
 def test_decision_past_review_by_needs_review(home):
