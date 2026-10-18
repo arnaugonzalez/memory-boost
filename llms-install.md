@@ -22,8 +22,10 @@ uv tool install memory-boost==0.2.0
 memory-boost --version          # expect: memory-boost 0.2.0
 ```
 
-If `memory-boost` is not found, the uv tool bin directory is not on PATH: run `uv tool dir --bin`
-and use that full path in the MCP config below, or ask the user before running `uv tool update-shell`.
+Check which binary the harness will run: `command -v memory-boost` must be inside `uv tool dir --bin`
+and `memory-boost --version` must print 0.2.0. If it is not found, or another `memory-boost` comes
+first on PATH, put the absolute path `$(uv tool dir --bin)/memory-boost` in the MCP config below
+instead of `memory-boost` (or ask the user before running `uv tool update-shell`).
 
 Without installing anything permanently, use `uvx memory-boost==0.2.0 <command>` instead of
 `memory-boost <command>` everywhere below (MCP config: command `uvx`, args
@@ -42,6 +44,8 @@ To use an existing markdown wiki, set `MEMORY_BOOST_WIKI=/path/to/wiki` in the M
 ## 4. Register the MCP server
 
 Server name: `memory`. Transport: stdio (default). Command: `memory-boost`, args: `["serve"]`.
+If a server named `memory` is already configured (`claude mcp list`, `codex mcp list` or the JSON
+file), ask the user whether to replace it or use another name such as `memory-boost`.
 Pick the block for your harness.
 
 **Claude Code.** If the user wants the full setup (MCP server, session-start hook, skills), tell
