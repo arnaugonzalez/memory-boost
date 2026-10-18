@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from memory_boost import core, drift, lessons
+from memory_boost import __version__, core, drift, lessons
 
-mcp = FastMCP("memory")
+mcp = FastMCP("memory-boost")
+# FastMCP has no version argument; without this, initialize reports the mcp library's version.
+mcp._mcp_server.version = __version__
 
 
 @mcp.tool()

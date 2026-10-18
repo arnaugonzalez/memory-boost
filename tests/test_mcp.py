@@ -10,6 +10,8 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
 
+from memory_boost import __version__
+
 TOOLS = {"memory_brief", "memory_recall", "memory_page", "memory_save", "memory_drift", "memory_lesson",
          "memory_checkpoint", "memory_resume", "memory_shelf"}
 
@@ -18,9 +20,9 @@ async def _session_calls():
     params = StdioServerParameters(command=sys.executable, args=["-m", "memory_boost.cli", "serve"],
                                    env=dict(os.environ))
     async with stdio_client(params) as (r, w), ClientSession(r, w) as s:
-        await s.initialize()
+        init = await s.initialize()
         tools = {t.name: t for t in (await s.list_tools()).tools}
-        out = {}
+        out = {"init": init}
         out["brief"] = await s.call_tool("memory_brief", {"project": "acme-api"})
         out["save"] = await s.call_tool("memory_save", {"project": "acme-api", "action": "mcp probe",
                                                         "agent": "test"})
@@ -41,6 +43,8 @@ def text(result):
 def test_all_tools_over_stdio(home):
     tools, out = asyncio.run(_session_calls())
     assert set(tools) == TOOLS
+    info = out["init"].serverInfo
+    assert (info.name, info.version) == ("memory-boost", __version__)
     for t in tools.values():
         assert t.description and t.inputSchema["type"] == "object"
     assert tools["memory_save"].inputSchema["required"] == ["project", "action"]
@@ -62,9 +66,10 @@ def _free_port() -> int:
 
 async def _http_calls(url: str):
     async with streamable_http_client(url) as (r, w, _), ClientSession(r, w) as s:
-        await s.initialize()
+        init = await s.initialize()
         tools = {t.name for t in (await s.list_tools()).tools}
-        return tools, await s.call_tool("memory_page", {"name": "acme-api", "section": "gotchas"})
+        page = await s.call_tool("memory_page", {"name": "acme-api", "section": "gotchas"})
+        return init.serverInfo, tools, page
 
 
 def test_all_tools_over_http(home):
@@ -81,9 +86,10 @@ def test_all_tools_over_http(home):
             except OSError:
                 assert time.monotonic() < deadline, "serve --http did not start listening"
                 time.sleep(0.1)
-        tools, page = asyncio.run(_http_calls(f"http://127.0.0.1:{port}/mcp"))
+        info, tools, page = asyncio.run(_http_calls(f"http://127.0.0.1:{port}/mcp"))
     finally:
         proc.terminate()
         proc.wait(timeout=10)
+    assert (info.name, info.version) == ("memory-boost", __version__)
     assert tools == TOOLS
     assert "integer cents" in text(page)
