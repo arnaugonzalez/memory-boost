@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-10-18
 
 - recall: freshness is now a down-weight on the bm25 score instead of a hard sort, so a strong match is no longer buried under fresher weak ones.
 - Optional semantic recall: `pip install "memory-boost[semantic]"` plus `MEMORY_BOOST_SEMANTIC=1` and a local
@@ -9,6 +9,9 @@
   The base install is unchanged.
 - `shelf`: park a one-line idea in a wiki page (default `concepts/idea-shelf.md`) from the CLI
   (`memory-boost shelf "..."`) or the new `memory_shelf` MCP tool, without reading the page.
+- `serve --http [--host 127.0.0.1] [--port 8765]`: the MCP server over streamable HTTP (stateless,
+  JSON responses) at `http://HOST:PORT/mcp`, for one long-lived local server shared by several
+  sessions. stdio stays the default. Requires `mcp>=1.10`.
 
 ## 0.1.1 — 2026-09-26
 

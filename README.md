@@ -123,6 +123,16 @@ it needed a new tool: the data was already on disk. It needed a reader.
 
 MCP server (all harnesses): command `memory-boost`, args `["serve"]`.
 
+To share one server between several sessions, run it over streamable HTTP (stateless, JSON
+responses) and point each harness at `http://127.0.0.1:8765/mcp`:
+
+```bash
+memory-boost serve --http                      # --host 127.0.0.1 --port 8765 are the defaults
+claude mcp add --transport http memory -s user http://127.0.0.1:8765/mcp
+```
+
+It binds to loopback by default and has no authentication: keep it there.
+
 | Harness | MCP registration | Context at session start |
 |---|---|---|
 | Claude Code (plugin) | `/plugin install memory-boost@memory-boost` | Included: hook, MCP server, skills |
@@ -156,8 +166,8 @@ Reports end with a `next:` line naming the exact command to run.
 <sub>Source: [docs/architecture.mmd](https://github.com/arnaugonzalez/memory-boost/blob/main/docs/architecture.mmd)</sub>
 
 The project is resolved from the working directory name (`~/work/acme-api` → `projects/acme-api.md`);
-map other names in `aliases.json`. Under 1,600 lines of Python, one dependency (`mcp`), no
-embeddings unless you opt into semantic recall, no daemon.
+map other names in `aliases.json`. Under 1,900 lines of Python, one dependency (`mcp`), no
+embeddings unless you opt into semantic recall, no daemon unless you run `serve --http`.
 
 ## Semantic recall (optional)
 
