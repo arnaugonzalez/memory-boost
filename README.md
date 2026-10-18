@@ -168,7 +168,8 @@ checkpoint. It never blocks session start: on any error it prints nothing.
 Skills: `/memory-boost` (router: when to run what), `/save-session`, `/restore-session`,
 `/retro`. The plugin installs them as `/memory-boost:retro` and so on; without it, copy
 `skills/*` into `~/.claude/skills/`. The first session after installing the plugin takes a few
-extra seconds while uv fetches the package; later sessions start in about 0.2 s.
+extra seconds while uv fetches `memory-boost==0.2.0` and its dependencies from PyPI (the only
+network access the plugin makes); later sessions start in about 0.2 s.
 
 CLI contract for agents: data on stdout, errors on stderr with a `fix:` line, `--json` on every
 reading command (with a `version` field), exit 0 = trust stdout, 1 = not found, 2 = bad input.
