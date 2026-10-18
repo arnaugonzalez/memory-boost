@@ -32,6 +32,15 @@ def test_cli_error_is_readable(home):
     assert r.returncode == 2 and r.stderr.startswith("error: invalid project")
 
 
+def test_serve_rejects_bad_port(home):
+    for bad in ("0", "65536", "http"):
+        r = run(["serve", "--http", "--port", bad])
+        assert r.returncode == 2 and "--port" in r.stderr
+    args = cli.build_parser().parse_args(["serve", "--http"])
+    assert (args.http, args.host, args.port) == (True, "127.0.0.1", 8765)
+    assert cli.build_parser().parse_args(["serve"]).http is False
+
+
 def test_hook_session_start_claude_envelope(home, tmp_path):
     ev = {"cwd": str(tmp_path / "acme-api"), "session_id": "abc", "source": "startup"}
     r = run(["hook", "session-start"], stdin=json.dumps(ev))

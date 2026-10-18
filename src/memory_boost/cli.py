@@ -30,6 +30,7 @@ examples:
   memory-boost recall "retry jobs" --json     full-text search, machine-readable
   memory-boost lessons --project acme-api     lessons from *other* projects that apply here
   memory-boost page queue-in-postgres         print a page; exit 1 if it does not exist
+  memory-boost serve --http --port 8765       MCP over streamable HTTP at http://127.0.0.1:8765/mcp
 
 exit codes: 0 ok · 1 not found / nothing to read · 2 usage or invalid input
 """
@@ -257,9 +258,16 @@ def cmd_lesson(args):
     print(f"lesson saved: {p}")
 
 
-def cmd_serve(_args):
+def cmd_serve(args):
     from memory_boost.server import main as serve  # imports `mcp` only when serving
-    serve()
+    serve(http=args.http, host=args.host, port=args.port)
+
+
+def _port(value: str) -> int:
+    port = int(value)
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError(f"port must be 1-65535, got {port}")
+    return port
 
 
 def _json_flag(s: argparse.ArgumentParser) -> None:
@@ -279,7 +287,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="seed an empty wiki with the example wiki and four synthetic transcripts")
     s.set_defaults(func=cmd_init)
 
-    s = sub.add_parser("serve", help="run the MCP server on stdio")
+    s = sub.add_parser("serve", help="run the MCP server (stdio, or streamable HTTP with --http)")
+    s.add_argument("--http", action="store_true",
+                   help="serve streamable HTTP (stateless, JSON responses) at http://HOST:PORT/mcp")
+    s.add_argument("--host", default="127.0.0.1", help="bind address with --http (default: 127.0.0.1)")
+    s.add_argument("--port", type=_port, default=8765, help="port with --http (default: 8765)")
     s.set_defaults(func=cmd_serve)
 
     s = sub.add_parser("hook", help="harness hook entry point (reads the event JSON on stdin)")

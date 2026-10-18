@@ -1,4 +1,5 @@
-"""MCP server (stdio) exposing the memory as eight tools. Run: `memory-boost serve`."""
+"""MCP server exposing the memory as nine tools. Run: `memory-boost serve` (stdio) or
+`memory-boost serve --http` (streamable HTTP, stateless, JSON responses)."""
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
@@ -105,5 +106,12 @@ def memory_lesson(name: str, title: str, applies_when: list[str], body: str,
     return f"lesson saved: {p.name} (applies_when: {', '.join(sorted(set(applies_when)))})"
 
 
-def main() -> None:
-    mcp.run()
+def main(http: bool = False, host: str = "127.0.0.1", port: int = 8765) -> None:
+    if not http:
+        mcp.run()
+        return
+    mcp.settings.host = host
+    mcp.settings.port = port
+    mcp.settings.stateless_http = True
+    mcp.settings.json_response = True
+    mcp.run(transport="streamable-http")
