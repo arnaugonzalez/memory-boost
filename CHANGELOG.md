@@ -16,6 +16,13 @@
   sessions. stdio stays the default. Requires `mcp>=1.10`.
 - MCP `initialize` reports `serverInfo` as `memory-boost` and its own version (it reported the mcp
   library's version).
+- Plugin: the MCP server and the session-start hook run the exact release (`uvx memory-boost==0.2.0`)
+  instead of the plugin checkout, as the Claude plugin directory requires pinned launchers. A test
+  fails if any pinned install (plugin, README, `llms-install.md`) drifts from `__version__`.
+- `llms-install.md`: steps an agent (Claude Code, Codex, Cline, Cursor) can follow to install the CLI
+  and register the MCP server over stdio or `serve --http`, with a harness-independent check. The
+  README gains an "Install from your agent" prompt and pins its install commands.
+- `docs/logo-400.png` (400×400, for MCP directories), rendered by `scripts/render-logo.py`.
 
 ## 0.1.1 — 2026-09-26
 

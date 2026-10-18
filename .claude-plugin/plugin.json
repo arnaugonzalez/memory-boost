@@ -10,7 +10,7 @@
   "mcpServers": {
     "memory": {
       "command": "uvx",
-      "args": ["--quiet", "--from", "${CLAUDE_PLUGIN_ROOT}", "memory-boost", "serve"]
+      "args": ["--quiet", "memory-boost==0.2.0", "serve"]
     }
   },
   "hooks": {
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uvx --quiet --from \"${CLAUDE_PLUGIN_ROOT}\" memory-boost hook session-start",
+            "command": "uvx --quiet memory-boost==0.2.0 hook session-start",
             "timeout": 120
           }
         ]
