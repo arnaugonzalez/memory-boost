@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import sqlite3
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 
 OLLAMA_URL = os.environ.get("MEMORY_BOOST_OLLAMA_URL", "http://localhost:11434")
 MODEL = os.environ.get("MEMORY_BOOST_EMBED_MODEL", "embeddinggemma")
@@ -21,6 +23,10 @@ DOC_PREFIX = "title: none | text: "
 DOC_CHARS = 8000
 BATCH = 16
 TIMEOUT = 60
+log = logging.getLogger(__name__)
+# Called as on_progress(done, total) after each embedded batch. The CLI sets it to report on stderr;
+# the MCP server leaves it None, so progress only reaches the debug log there.
+on_progress: Callable[[int, int], None] | None = None
 
 
 class SemanticError(RuntimeError):
@@ -128,6 +134,10 @@ def sync(conn: sqlite3.Connection) -> int:
         vecs = embed([texts[j] for j in batch])
         rows = [(j, sqlite_vec.serialize_float32(v), hashes[j]) for j, v in zip(batch, vecs, strict=True)]
         _store(conn, rows)
+        done = i + len(batch)
+        log.debug("embedded %d/%d chunks", done, len(fresh))
+        if on_progress:
+            on_progress(done, len(fresh))
     return len(fresh)
 
 

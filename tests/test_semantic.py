@@ -1,4 +1,5 @@
 """Semantic recall without a real Ollama: embed() is replaced by a deterministic concept embedder."""
+import json
 import logging
 import re
 import sys
@@ -38,6 +39,7 @@ def semantic_home(home, monkeypatch):
     monkeypatch.setenv("MEMORY_BOOST_SEMANTIC", "1")
     monkeypatch.delenv("MEMORY_BOOST_RECALL_MODE", raising=False)
     monkeypatch.setattr(semantic, "embed", fake_embed)
+    monkeypatch.setattr(semantic, "on_progress", None)  # the CLI sets it; don't leak it across tests
     (home / "wiki/decisions/renew-api-tokens.md").write_text(
         "# Renew API tokens\n\nWe renew the API tokens every quarter, no manual steps.\n", encoding="utf-8")
     return home
@@ -46,6 +48,37 @@ def semantic_home(home, monkeypatch):
 def test_sync_is_incremental(semantic_home):
     assert core.refresh_index()["embedded"] > 0
     assert core.refresh_index()["embedded"] == 0
+
+
+def test_index_reports_embedding_progress_on_stderr_only(semantic_home, capsys):
+    from memory_boost import cli
+    cli.main(["index"])
+    out, err = capsys.readouterr()
+    stats = json.loads(out)
+    assert stats["embedded"] > 0
+    assert f"embedding {stats['embedded']}/{stats['embedded']} chunks…" in err
+    cli.main(["index"])  # nothing to embed: no progress line
+    out, err = capsys.readouterr()
+    assert json.loads(out)["embedded"] == 0 and "embedding" not in err
+
+
+def test_progress_rewrites_one_line_on_a_tty(monkeypatch, capsys):
+    from memory_boost import cli
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+    for done in (16, 32, 40):
+        cli._embed_progress(done, 40)
+    err = capsys.readouterr().err
+    assert err == "\rembedding 16/40 chunks…\rembedding 32/40 chunks…\rembedding 40/40 chunks…\n"
+
+
+def test_progress_prints_every_n_chunks_off_a_tty(monkeypatch, capsys):
+    from memory_boost import cli
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: False)
+    for done in range(16, 300, 16):
+        cli._embed_progress(done, 300)
+    cli._embed_progress(300, 300)
+    assert capsys.readouterr().err.splitlines() == [
+        "embedding 128/300 chunks…", "embedding 256/300 chunks…", "embedding 300/300 chunks…"]
 
 
 def test_rechunked_unchanged_docs_keep_their_vectors(semantic_home):

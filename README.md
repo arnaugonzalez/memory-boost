@@ -181,6 +181,10 @@ export MEMORY_BOOST_SEMANTIC=1
 memory-boost index                       # embeds the wiki once; later runs embed only changes
 ```
 
+The first index of a large wiki on CPU can take minutes: as a rough guide, about 15 minutes for some
+850 documents on a laptop without a GPU (one measurement, not a benchmark). `memory-boost index` and
+`recall` show `embedding N/M chunks…` on stderr while it runs; later runs re-embed only what changed.
+
 Default mode when on is `hybrid` (full-text and vectors fused by weighted reciprocal rank); override
 with `MEMORY_BOOST_RECALL_MODE=fts|semantic|hybrid` or `memory-boost recall --mode`. If Ollama is down,
 recall falls back to full-text and logs a warning. On a private 64-query set (39 literal, 25 paraphrase)

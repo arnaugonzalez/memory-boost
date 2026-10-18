@@ -7,11 +7,15 @@
   `embeddinggemma` (Ollama) adds vector search via sqlite-vec. Default mode when on is `hybrid`; `recall --mode`
   and `MEMORY_BOOST_RECALL_MODE` select `fts`, `semantic` or `hybrid`. Falls back to full-text if Ollama is down.
   The base install is unchanged.
+  While embedding, `memory-boost index` and `recall` report `embedding N/M chunks…` on stderr (one
+  rewritten line on a terminal, a line every 128 chunks otherwise); stdout and the MCP server stay quiet.
 - `shelf`: park a one-line idea in a wiki page (default `concepts/idea-shelf.md`) from the CLI
   (`memory-boost shelf "..."`) or the new `memory_shelf` MCP tool, without reading the page.
 - `serve --http [--host 127.0.0.1] [--port 8765]`: the MCP server over streamable HTTP (stateless,
   JSON responses) at `http://HOST:PORT/mcp`, for one long-lived local server shared by several
   sessions. stdio stays the default. Requires `mcp>=1.10`.
+- MCP `initialize` reports `serverInfo` as `memory-boost` and its own version (it reported the mcp
+  library's version).
 
 ## 0.1.1 — 2026-09-26
 

@@ -15,7 +15,7 @@ import sys
 from importlib import resources
 from pathlib import Path
 
-from memory_boost import __version__, core
+from memory_boost import __version__, core, semantic
 
 JSON_VERSION = 1
 EXIT_NOT_FOUND = 1
@@ -123,12 +123,25 @@ def cmd_init(args):
               f"             memory-boost mine --root {home / 'example_transcripts'}")
 
 
+PROGRESS_EVERY = 128  # chunks between progress lines when stderr is not a terminal
+
+
+def _embed_progress(done: int, total: int) -> None:
+    """Embedding progress on stderr: one rewritten line on a TTY, a line every PROGRESS_EVERY otherwise."""
+    msg = f"embedding {done}/{total} chunks…"
+    if sys.stderr.isatty():
+        print(f"\r{msg}", end="\n" if done == total else "", file=sys.stderr, flush=True)
+    elif done == total or done // PROGRESS_EVERY > (done - semantic.BATCH) // PROGRESS_EVERY:
+        print(msg, file=sys.stderr, flush=True)
+
+
 def cmd_brief(args):
     result = core.brief(args.project or args.cwd or str(Path.cwd()), budget=args.budget)
     _json_out(result) if args.json else print(result["text"])
 
 
 def cmd_recall(args):
+    semantic.on_progress = _embed_progress
     results = core.recall(args.query, project=args.project, limit=args.limit,
                           include_historic=args.include_historic, mode=args.mode)
     if args.json:
@@ -196,6 +209,7 @@ def cmd_checkpoints(args):
 
 
 def cmd_index(args):
+    semantic.on_progress = _embed_progress
     stats = core.refresh_index(force=args.rebuild)
     for w in stats.pop("warnings"):
         _warn(w)
