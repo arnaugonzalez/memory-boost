@@ -43,7 +43,7 @@ assert init["result"]["serverInfo"]["name"], init
 call({"jsonrpc": "2.0", "method": "notifications/initialized"}, reply=False)
 tools = {t["name"] for t in call({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]}
 p.terminate()
-assert len(tools) == 8 and "memory_drift" in tools, tools
+assert len(tools) == 9 and {"memory_drift", "memory_shelf"} <= tools, tools
 print("mcp tools:", ", ".join(sorted(tools)))
 EOF
 step OK

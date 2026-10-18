@@ -43,11 +43,14 @@ def _l2(v: list[float]) -> list[float]:
 
 
 def _post(texts: list[str]) -> list[list[float]]:
+    if not OLLAMA_URL.startswith(("http://", "https://")):
+        raise SemanticError(f"MEMORY_BOOST_OLLAMA_URL must be http(s)://, got {OLLAMA_URL!r}")
     body = json.dumps({"model": MODEL, "input": texts}).encode()
     req = urllib.request.Request(f"{OLLAMA_URL}/api/embed", data=body,
                                  headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        # The scheme is checked above, so urlopen cannot be steered to file:// or custom schemes.
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # nosec B310
             vecs = json.loads(resp.read())["embeddings"]
     except urllib.error.HTTPError as e:
         if e.code == 404:
@@ -99,7 +102,7 @@ def sync(conn: sqlite3.Connection) -> int:
     import sqlite_vec
     ensure_schema(conn)
     texts = {i: _doc_text(t, b) for i, t, b in conn.execute("SELECT id, title, body FROM docs")}
-    hashes = {i: hashlib.sha1(s.encode()).hexdigest() for i, s in texts.items()}
+    hashes = {i: hashlib.sha1(s.encode(), usedforsecurity=False).hexdigest() for i, s in texts.items()}
     have = dict(conn.execute("SELECT doc_id, h FROM vec_src").fetchall())
     todo = [i for i in hashes if have.get(i) != hashes[i]]
     # A changed file is deleted and re-chunked, so its unchanged chunks come back under new ids:

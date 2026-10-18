@@ -110,3 +110,10 @@ def test_disabled_never_imports_sqlite_vec(home, monkeypatch):
     monkeypatch.delitem(sys.modules, "sqlite_vec", raising=False)
     assert core.recall("SKIP LOCKED")
     assert "sqlite_vec" not in sys.modules
+
+
+@pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://localhost", "localhost:11434"])
+def test_ollama_url_must_be_http(monkeypatch, url):
+    monkeypatch.setattr(semantic, "OLLAMA_URL", url)
+    with pytest.raises(semantic.SemanticError, match="must be http"):
+        _REAL_EMBED(["x"])
