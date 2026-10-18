@@ -49,9 +49,9 @@ times.
 No install needed; the wiki lands in `~/.local/share/memory-boost`:
 
 ```bash
-uvx memory-boost init --example   # sample wiki with five kinds of rot + four synthetic transcripts
-uvx memory-boost drift            # what in that memory is stale, orphaned or never written down
-uvx memory-boost mine             # now on your real ~/.claude/projects: aggregates only
+uvx memory-boost==0.2.0 init --example   # sample wiki with five kinds of rot + four synthetic transcripts
+uvx memory-boost==0.2.0 drift            # what in that memory is stale, orphaned or never written down
+uvx memory-boost==0.2.0 mine             # now on your real ~/.claude/projects: aggregates only
 ```
 
 To keep it in Claude Code, install the plugin. It brings the MCP server, the session-start
@@ -62,7 +62,22 @@ brief and the skills in one step; it only needs [uv](https://docs.astral.sh/uv/)
 /plugin install memory-boost@memory-boost
 ```
 
-Other agents, or the CLI on its own: `uv tool install memory-boost` (or `pipx install memory-boost`).
+Other agents, or the CLI on its own: `uv tool install memory-boost==0.2.0` (or
+`pipx install memory-boost==0.2.0`). Or let your agent do it: see [Install from your agent](#install-from-your-agent).
+
+## Install from your agent
+
+Paste this into Claude Code, Codex, Cline or Cursor:
+
+> Install memory-boost 0.2.0 by following
+> https://github.com/arnaugonzalez/memory-boost/blob/main/llms-install.md : install the CLI with
+> `uv tool install memory-boost==0.2.0`, run `memory-boost init`, register `memory-boost serve`
+> as a stdio MCP server named `memory`, check that it answers with nine `memory_*` tools, then run
+> `memory-boost drift` and show me the output. Ask me before writing outside the memory home
+> (`~/.local/share/memory-boost`) or editing any global agent config.
+
+The agent-oriented steps (stdio and `serve --http`, per harness, with checks) are in
+[llms-install.md](https://github.com/arnaugonzalez/memory-boost/blob/main/llms-install.md).
 
 ## On a real machine
 
@@ -175,7 +190,7 @@ Off by default: `memory_recall` is full-text only and the base install stays one
 To also match paraphrases and other languages, run a local embedding model:
 
 ```bash
-pip install "memory-boost[semantic]"     # adds sqlite-vec
+pip install "memory-boost[semantic]==0.2.0"   # adds sqlite-vec
 ollama pull embeddinggemma
 export MEMORY_BOOST_SEMANTIC=1
 memory-boost index                       # embeds the wiki once; later runs embed only changes
@@ -207,7 +222,7 @@ The query set is not published.
 | | memory-boost | [basic-memory](https://github.com/basicmachines-co/basic-memory) | [claude-mem](https://github.com/thedotmack/claude-mem) | [agent-retro](https://github.com/giannimassi/agent-retro) |
 |---|---|---|---|---|
 | Store | Markdown wiki you edit | Markdown | Captured observations | None (prompt skill) |
-| Search | FTS5 | FTS + vectors | FTS + vectors | — |
+| Search | FTS5 (+ optional local vectors) | FTS + vectors | FTS + vectors | — |
 | Freshness / review dates | Yes | No | No | — |
 | Drift report over memory | Yes | No | No | No |
 | Session analytics | Yes (aggregates, local) | No | No | LLM reads the conversation |
@@ -220,7 +235,7 @@ agents already wrote down.
 
 ## Limits / non-goals
 
-- Keyword search only; no embeddings.
+- Full-text search by default; embeddings only with the optional `[semantic]` extra and a local Ollama.
 - `mine` understands Claude Code transcripts today. Codex is on the roadmap.
 - Reports are as good as the wiki: an empty wiki yields an empty `drift`.
 - Single user, local files. Linux and macOS; Windows untested.
