@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 — unreleased
+
+- README: social preview on top; new narrated demo (`docs/demo.tape`) in an "Example" section; AGENTS.md for coding agents.
+
 ## 0.2.0 — 2026-10-18
 
 - recall: freshness is now a down-weight on the bm25 score instead of a hard sort, so a strong match is no longer buried under fresher weak ones.

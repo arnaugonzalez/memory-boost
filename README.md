@@ -1,4 +1,6 @@
 <!-- mcp-name: io.github.arnaugonzalez/memory-boost -->
+<img src="https://raw.githubusercontent.com/arnaugonzalez/memory-boost/main/docs/social-preview.jpg" alt="memory-boost: memory for coding agents that reviews itself. A markdown wiki your agents read and write over MCP, plus drift reports on what went stale" width="100%">
+
 <h1 align="center">memory-boost</h1>
 
 <p align="center"><em>Memory for coding agents that reviews itself.</em></p>
@@ -7,11 +9,6 @@
   <a href="https://github.com/arnaugonzalez/memory-boost/actions/workflows/ci.yml"><img src="https://github.com/arnaugonzalez/memory-boost/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT">
   <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/arnaugonzalez/memory-boost/main/docs/demo.gif" alt="memory-boost drift, mine and lessons running on the bundled example data" width="92%"><br>
-  <sub>drift, mine and lessons on the bundled example data · everything runs locally</sub>
 </p>
 
 <p align="center">
@@ -43,6 +40,9 @@ times.
 | Why does my agent keep re-reading the same file? | `mine`: *one file, read 18 times* |
 | Is my agent spawning 20 subagents behind my back? | `mine`: yes, and in which session |
 | Where was I before `/compact` ate my context? | The session-start hook puts your checkpoint back |
+
+**Using an AI agent?** Point Claude Code, Codex, Cursor or Gemini CLI at this repo: [AGENTS.md](https://github.com/arnaugonzalez/memory-boost/blob/main/AGENTS.md)
+tells it how to install memory-boost, seed a wiki and run the reports for you.
 
 ## Try it in 30 seconds
 
@@ -78,6 +78,17 @@ Paste this into Claude Code, Codex, Cline or Cursor:
 
 The agent-oriented steps (stdio and `serve --http`, per harness, with checks) are in
 [llms-install.md](https://github.com/arnaugonzalez/memory-boost/blob/main/llms-install.md).
+
+## Example: back on a project after two months
+
+<img src="https://raw.githubusercontent.com/arnaugonzalez/memory-boost/main/docs/demo.gif" alt="On the bundled example wiki: memory-boost drift lists 7 findings, including an expired Postgres pin on acme-api; page shows that decision; lessons brings an idempotent-retries lesson over from pixel-notes" width="100%">
+
+You come back to `acme-api` and the agent still trusts everything it wrote down. `drift` says
+which of it no longer holds: a Postgres pin whose review date passed in June, a superseded decision
+that points nowhere, projects that went silent. `page` shows why the pin was made, so you can
+decide in a minute. `lessons` brings over what `pixel-notes` learned about retrying jobs, because
+both projects run background jobs. Bundled example data (`memory-boost init --example`), recorded
+with [vhs](https://github.com/charmbracelet/vhs) from `docs/demo.tape`.
 
 ## On a real machine
 
