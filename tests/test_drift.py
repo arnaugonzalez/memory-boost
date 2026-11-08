@@ -13,7 +13,7 @@ def test_example_wiki_shows_each_kind_once(home):
     """The bundled example is the demo: one finding of each wiki-level kind, most urgent first."""
     r = drift.drift_report(today=TODAY)
     assert kinds(r) == ["decision-expired", "decision-no-review", "decision-superseded-orphan",
-                        "project-no-decisions", "project-silent"]
+                        "lesson-unproven", "project-no-decisions", "project-silent"]
     f = r["findings"][0]
     assert f["title"] == "pin-postgres-15" and f["project"] == "acme-api" and f["severity"] == 1
     by_kind = {f["kind"]: f["title"] for f in r["findings"]}
@@ -21,8 +21,9 @@ def test_example_wiki_shows_each_kind_once(home):
     assert by_kind["decision-no-review"] == "cors-allow-all"
     assert by_kind["project-no-decisions"] == "pixel-notes"
     assert by_kind["project-silent"] == "legacy-dashboard"
+    assert by_kind["lesson-unproven"] == "money-as-integer-cents"
     assert r["totals"] == {"decisions": 5, "projects": 3, "log_entries": 12, "open_checkpoints": 0,
-                           "findings": 5}
+                           "lessons": 2, "findings": 6}
 
 
 def test_report_is_deterministic(home):

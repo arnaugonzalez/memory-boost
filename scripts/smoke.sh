@@ -18,7 +18,7 @@ step drift;    memory-boost drift | tee /dev/stderr | grep -q "pin-postgres-15"
 step mine;     memory-boost mine --root "$data/example_transcripts" | grep -q "sessions      3"
 step lessons;  memory-boost lessons --project acme-api | grep -q "retry-jobs-idempotently"
 step recall
-memory-boost recall postgres --json | python3 -c 'import json,sys; assert json.load(sys.stdin)["version"] == 1'
+memory-boost recall PostgreSQL --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["version"] == 1 and d["results"]'
 step "page missing exits 1"
 if memory-boost page does-not-exist 2>/dev/null; then echo "expected exit 1" >&2; exit 1; fi
 step hook

@@ -3,6 +3,9 @@ title: Make background jobs idempotent before adding retries
 created: 2026-08-30
 applies_when: [background-jobs, offline-sync, queues]
 learned_on: pixel-notes
+cue: a job can run more than once (retries, at-least-once queues, offline replays) and has a side effect
+evidence: pixel-notes sync replayed after a timeout: 41 duplicate notes before the idempotency key, 0 in the same replay test after
+confidence: high
 ---
 # Make background jobs idempotent before adding retries
 

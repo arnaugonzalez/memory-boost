@@ -1,8 +1,26 @@
 # Changelog
 
-## 0.2.1 — unreleased
+## 0.2.1 — 2026-11-08
+
+- Lessons carry optional `cue`, `evidence` and `confidence` (high | medium | low; only with evidence), after Harness² (arXiv 2610.14224). `memory_lesson` and `memory-boost lesson --cue --evidence --confidence`. The brief marks lessons without evidence as `unproven`.
+- `memory_save` v2 field `friction`: `[{what, kind: time | guess | workaround, cause, fix?}]`, setup friction the next agent would also hit. `memory-boost friction [--since 7d] [--project] [--top 3] [--json]` groups it by cause; a cause seen in one session is reported as noise, never proposed.
+- Drift: `lesson-unproven` (a lesson with no evidence) and `project-no-tags` (a project page no lesson can reach, reported only when lessons exist). `totals` gains `lessons`.
+- Slugs fold accents instead of dropping the letter: `Validar código` → `validar-codigo` (was `validar-c-digo`), so tags and names written in Spanish, Catalan, French… match again.
+- Pending `owner`, `money` and `stated` accept only the English values; the Spanish aliases from the first local v2 build are gone.
+- sdist is an explicit allowlist (`only-include`): local run logs and planning notes can no longer slip into a release.
+- `retro` skill: cue, evidence and confidence for each lesson; no lesson is a valid outcome; `friction` in the closing save.
+- `memory-boost hook stop` and `hook pre-compact`: automatic checkpoint from the transcript, no LLM. Prompts (with `<private>…</private>` stripped), files edited and git commits go under the checkpoint's `auto` key; task, done, next and notes written by the agent are never overwritten. Stop writes only when something changed and 10 min (`MEMORY_BOOST_AUTOSAVE_SECS`) or 4 prompts (`MEMORY_BOOST_AUTOSAVE_TURNS`) passed; PreCompact always writes, so the post-compact re-injection has something to show. A one-question session leaves no checkpoint (Stop waits for an edit, a commit or 4 prompts), and `drift` does not count auto-only checkpoints as open work.
+- Brief: a line longer than its budget (the project catalog in `### Index`) is cut at a word instead of dropped, so the index no longer shows up empty.
 
 - README: social preview on top; new narrated demo (`docs/demo.tape`) in an "Example" section; AGENTS.md for coding agents.
+- `memory_save` v2 optional fields: `outcome` (done | progress | blocked | waiting | research | abandoned), `pending` as a list of `{text, owner, severity, due?, waiting_on?}`, `closes`, `drops`, `decisions`, `deadlines`, `orgs`, `touches`, `uses`, `billable`, `money`, `stated`, plus the external `session` and `metrics` blocks. v1 calls keep working unchanged; the log.md header does not change.
+- `pending` is now persisted in the JSONL with stable ids `<project>#<n>` assigned by the server (counter per project in `events/pending-seq.json`). A plain string still works and is split on `;` as before.
+- `closes` and `drops` fold over the events: open pending items are the ones created and not closed or dropped later. Nothing is edited in place.
+- `date_local` (the local day of the save) and `MEMORY_BOOST_TZ` (IANA zone, UTC by default) decide the log.md header date for v2 events.
+- `closes` and `drops` only record ids that are open: unknown, already closed or repeated ids are left out of the event and reported as `ignored: <id> (<why>)` in the save line, so a typo cannot fake a close.
+- Pending items accept an optional `done_check` (a command or an observable condition). memory-boost stores it and shows it in `pending` (`check: …`); it never runs it.
+- Brief: a new `### <project> — open pending` block lists the open items with their ids, so a later session can cite them in `closes`.
+- CLI: `memory-boost save --outcome`, `--closes`, `--session-json`, `--metrics-json` and `--fields-json` (any v2 field as one JSON object, or `@file`); `memory-boost pending [--project] [--json]` prints the open items.
 
 ## 0.2.0 — 2026-10-18
 

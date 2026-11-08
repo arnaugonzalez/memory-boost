@@ -49,9 +49,9 @@ tells it how to install memory-boost, seed a wiki and run the reports for you.
 No install needed; the wiki lands in `~/.local/share/memory-boost`:
 
 ```bash
-uvx memory-boost==0.2.0 init --example   # sample wiki with five kinds of rot + four synthetic transcripts
-uvx memory-boost==0.2.0 drift            # what in that memory is stale, orphaned or never written down
-uvx memory-boost==0.2.0 mine             # now on your real ~/.claude/projects: aggregates only
+uvx memory-boost==0.2.1 init --example   # sample wiki with five kinds of rot + four synthetic transcripts
+uvx memory-boost==0.2.1 drift            # what in that memory is stale, orphaned or never written down
+uvx memory-boost==0.2.1 mine             # now on your real ~/.claude/projects: aggregates only
 ```
 
 To keep it in Claude Code, install the plugin. It brings the MCP server, the session-start
@@ -62,16 +62,16 @@ brief and the skills in one step; it only needs [uv](https://docs.astral.sh/uv/)
 /plugin install memory-boost@memory-boost
 ```
 
-Other agents, or the CLI on its own: `uv tool install memory-boost==0.2.0` (or
-`pipx install memory-boost==0.2.0`). Or let your agent do it: see [Install from your agent](#install-from-your-agent).
+Other agents, or the CLI on its own: `uv tool install memory-boost==0.2.1` (or
+`pipx install memory-boost==0.2.1`). Or let your agent do it: see [Install from your agent](#install-from-your-agent).
 
 ## Install from your agent
 
 Paste this into Claude Code, Codex, Cline or Cursor:
 
-> Install memory-boost 0.2.0 by following
+> Install memory-boost 0.2.1 by following
 > https://github.com/arnaugonzalez/memory-boost/blob/main/llms-install.md : install the CLI with
-> `uv tool install memory-boost==0.2.0`, run `memory-boost init`, register `memory-boost serve`
+> `uv tool install memory-boost==0.2.1`, run `memory-boost init`, register `memory-boost serve`
 > as a stdio MCP server named `memory`, check that it answers with nine `memory_*` tools, then run
 > `memory-boost drift` and show me the output. Ask me before writing outside the memory home
 > (`~/.local/share/memory-boost`) or editing any global agent config.
@@ -81,7 +81,7 @@ The agent-oriented steps (stdio and `serve --http`, per harness, with checks) ar
 
 ## Example: back on a project after two months
 
-<img src="https://raw.githubusercontent.com/arnaugonzalez/memory-boost/main/docs/demo.gif" alt="On the bundled example wiki: memory-boost drift lists 7 findings, including an expired Postgres pin on acme-api; page shows that decision; lessons brings an idempotent-retries lesson over from pixel-notes" width="100%">
+<img src="https://raw.githubusercontent.com/arnaugonzalez/memory-boost/main/docs/demo.gif" alt="On the bundled example wiki: memory-boost drift lists 8 findings, including an expired Postgres pin on acme-api; page shows that decision; lessons brings an idempotent-retries lesson over from pixel-notes" width="100%">
 
 You come back to `acme-api` and the agent still trusts everything it wrote down. `drift` says
 which of it no longer holds: a Postgres pin whose review date passed in June, a superseded decision
@@ -115,7 +115,7 @@ $ memory-boost mine
 sessions      80 with ≥20 turns
 tools         Bash 5956 · Edit 860 · Read 692 · Write 493 · Agent 203 · ToolSearch 138
 bash          5956 calls, 159 failed (2.7%); most failed: cd (69), sleep (12), ssh (9), pkill (8), ls (7)
-bash/edit     4.4x; extreme: crm-wt-f11 107.5x, sandbox 70.0x, sandbox 54.0x
+bash/edit     4.4x; extreme: worktree-a 107.5x, sandbox 70.0x, sandbox 54.0x
 reads         692 calls, 131 re-reads of a file already read (19%); top: …/apply_email.py ×18
 discipline    62 long sessions (≥60 turns): 47 never checkpointed, 29 never saved
 subagents     203 spawned in 44 sessions; max in one session: 20
@@ -166,20 +166,30 @@ It binds to loopback by default and has no authentication: keep it there.
 | Codex CLI | `codex mcp add memory -- memory-boost serve` | `AGENTS.md`: "call `memory_brief` first" |
 | Cursor / VS Code / Gemini CLI | stdio entry in their `mcp.json` / `settings.json` | Same line in rules (hook adapters: roadmap) |
 
-Manual Claude Code hook (`~/.claude/settings.json`), not needed with the plugin:
+Manual Claude Code hooks (`~/.claude/settings.json`), not needed with the plugin:
 
 ```json
-{ "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "memory-boost hook session-start" } ] } ] } }
+{ "hooks": {
+  "SessionStart": [ { "hooks": [ { "type": "command", "command": "memory-boost hook session-start" } ] } ],
+  "Stop":         [ { "hooks": [ { "type": "command", "command": "memory-boost hook stop", "timeout": 10 } ] } ],
+  "PreCompact":   [ { "hooks": [ { "type": "command", "command": "memory-boost hook pre-compact", "timeout": 20 } ] } ]
+} }
 ```
 
 On `startup`/`resume` it injects ~1k tokens: catalog, the project's context and last sessions,
-its drift, lessons from other projects, your open checkpoint. On `compact` only this session's
-checkpoint. It never blocks session start: on any error it prints nothing.
+its drift, `open pending` items, lessons from other projects, your open checkpoint. On `compact`
+only this session's checkpoint. It never blocks session start: on any error it prints nothing.
+
+`stop` and `pre-compact` write an automatic checkpoint from the transcript, with no LLM call:
+your prompts (minus `<private>…</private>`), files edited and git commits, under the checkpoint's
+`auto` key. What the agent wrote (task, done, next) is never overwritten. `stop` writes only when
+something changed and 10 minutes or 4 prompts passed; `pre-compact` always writes, so the
+post-compact re-injection has something to show even if the agent never called `memory_checkpoint`.
 
 Skills: `/memory-boost` (router: when to run what), `/save-session`, `/restore-session`,
 `/retro`. The plugin installs them as `/memory-boost:retro` and so on; without it, copy
 `skills/*` into `~/.claude/skills/`. The first session after installing the plugin takes a few
-extra seconds while uv fetches `memory-boost==0.2.0` and its dependencies from PyPI (the only
+extra seconds while uv fetches `memory-boost==0.2.1` and its dependencies from PyPI (the only
 network access the plugin makes); later sessions start in about 0.2 s.
 
 CLI contract for agents: data on stdout, errors on stderr with a `fix:` line, `--json` on every
@@ -196,13 +206,49 @@ The project is resolved from the working directory name (`~/work/acme-api` → `
 map other names in `aliases.json`. Under 1,900 lines of Python, one dependency (`mcp`), no
 embeddings unless you opt into semantic recall, no daemon unless you run `serve --http`.
 
+### Session events v2
+
+Every `memory_save` (or `memory-boost save`) writes one event to `$MEMORY_BOOST_HOME/events/<agent>/<YYYY-MM-DD>.jsonl`
+and one entry to `wiki/log.md`. The v2 fields are all optional: a v1 call (`project`, `action`, `result`,
+`detail`, `pending` as text) keeps working and writes the same log.md header. Each event now carries
+`"schema": "memory-boost/session@2"`, a server `date_local`, a per-session `seq` and the assigned pending ids;
+v1 readers ignore the extra keys.
+
+- `outcome`: `done | progress | blocked | waiting | research | abandoned`.
+- `pending`: a list of `{text, owner, severity, due?, waiting_on?}`. The server assigns each item a stable id
+  `<project>#<n>` (counter per project in `events/pending-seq.json`), shown in the brief under `open pending`.
+- `closes` / `drops`: ids the session finished or no longer needs. Open items are what remains after folding them.
+- `session` and `metrics`: optional blocks stored as given. The caller computes them, for example with a
+  session summary tool; the save itself does not read transcripts.
+
+```json
+{
+  "schema": "memory-boost/session@2",
+  "project": "acme-api",
+  "action": "Moved the job queue to Postgres and added retries",
+  "result": "ok",
+  "outcome": "progress",
+  "session": {"id": "3f9c2a1e-…", "harness": "claude-code", "cwd": "/home/me/work/acme-api",
+              "segment_start": "2026-10-28T10:00:03Z", "segment_end": "2026-10-28T14:45:12Z"},
+  "metrics": {"source": "ledger session-summary@1", "minutes": {"acme-api": {"attention": 182, "agent": 160, "gross": 230}},
+              "commits": [{"repo": "acme-api", "sha": "f2c1114", "pushed": false}],
+              "tests": {"runs": 6, "passed": 1180, "failed": 0}, "cost_usd": 14.2},
+  "pending": [{"text": "Run the batch import", "owner": "user", "severity": 3},
+              {"text": "Push main to origin", "owner": "user", "severity": 2}],
+  "closes": ["acme-api#12", "acme-api#14"]
+}
+```
+
+`date_local` is set by the server from `MEMORY_BOOST_TZ` (an IANA zone such as `Europe/Madrid`; UTC by default).
+Events written before v2 have no pending ids, so `memory-boost pending [--project]` (and `closes`) cannot see them.
+
 ## Semantic recall (optional)
 
 Off by default: `memory_recall` is full-text only and the base install stays one dependency.
 To also match paraphrases and other languages, run a local embedding model:
 
 ```bash
-pip install "memory-boost[semantic]==0.2.0"   # adds sqlite-vec
+pip install "memory-boost[semantic]==0.2.1"   # adds sqlite-vec
 ollama pull embeddinggemma
 export MEMORY_BOOST_SEMANTIC=1
 memory-boost index                       # embeds the wiki once; later runs embed only changes
@@ -228,6 +274,19 @@ The query set is not published.
 | `MEMORY_BOOST_CHECKPOINTS` | `$MEMORY_BOOST_HOME/checkpoints` | Checkpoint directory |
 | `MEMORY_BOOST_TRANSCRIPTS` | `~/.claude/projects` | Where `mine` looks (several dirs: `a:b`) |
 | `MEMORY_BOOST_TODAY` | today (UTC) | Pin the date for reproducible reports |
+| `MEMORY_BOOST_TZ` | `UTC` | IANA zone for `date_local` in events (e.g. `Europe/Madrid`) |
+| `MEMORY_BOOST_AUTOSAVE_SECS` | `600` | `hook stop`: minimum seconds between automatic checkpoints |
+| `MEMORY_BOOST_AUTOSAVE_TURNS` | `4` | `hook stop`: or this many new prompts, whichever comes first |
+| `MEMORY_BOOST_SEMANTIC` | unset | `1` enables vector recall (needs `memory-boost[semantic]` + Ollama) |
+| `MEMORY_BOOST_RECALL_MODE` | `fts` (`hybrid` with semantic) | `fts`, `semantic` or `hybrid` |
+| `MEMORY_BOOST_EMBED_MODEL` | `embeddinggemma` | Ollama embedding model |
+| `MEMORY_BOOST_OLLAMA_URL` | `http://localhost:11434` | Ollama endpoint |
+
+Status values: `current`, `review`, `historic`, `superseded`; `accepted`/`active` read as
+`current` and `proposed` as `review`.
+
+**Experimental** (shipped, little real use yet): `memory_shelf`, `memory-boost friction` and the
+lesson fields `cue`/`evidence`/`confidence`. Their output format may still change.
 
 ## vs. alternatives
 

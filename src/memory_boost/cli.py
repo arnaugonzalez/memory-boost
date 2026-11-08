@@ -25,6 +25,7 @@ EXAMPLES = """\
 examples:
   memory-boost init --example                 seed a sample wiki + synthetic transcripts
   memory-boost drift                          what in the wiki expired, went silent or was never written
+  memory-boost friction --since 7d            setup friction from saved sessions, grouped by cause
   memory-boost mine --since 7d                digest of your local Claude Code transcripts (aggregates)
   memory-boost brief --project acme-api       what an agent gets at session start (add --json)
   memory-boost recall "retry jobs" --json     full-text search, machine-readable
@@ -89,10 +90,17 @@ def session_start_payload(event: dict) -> str | None:
 
 
 def cmd_hook(args):
-    # A hook must never block or break session start: any failure -> no output, exit 0.
+    # A hook must never block or break the session: any failure -> no output, exit 0.
     try:
         raw = sys.stdin.read()
-        event = json.loads(raw) if raw.strip() else {}
+        try:
+            event = json.loads(raw) if raw.strip() else {}
+        except json.JSONDecodeError as e:
+            raise ValueError(f"invalid hook payload (expected the harness event JSON): {e}") from e
+        if args.event in ("stop", "pre-compact"):
+            from memory_boost import autosave
+            autosave.autosave(event, args.event)
+            return  # Stop/PreCompact stdout is parsed by the harness: print nothing
         text = session_start_payload(event)
     except Exception as e:  # noqa: BLE001 — logged to stderr, never raised into the harness
         print(f"memory-boost hook: {e}", file=sys.stderr)
@@ -167,10 +175,69 @@ def cmd_page(args):
         print(text)
 
 
+SAVE_FIELDS = ("pending", "drops", "decisions", "deadlines", "orgs", "touches", "uses",
+               "billable", "money", "stated", "friction")
+
+
+def _json_arg(value: str | None):
+    """A JSON value given inline, or as @path to a file that holds it. None passes through."""
+    if value is None:
+        return None
+    if value.startswith("@"):
+        try:
+            value = Path(value[1:]).expanduser().read_text(encoding="utf-8")
+        except OSError as e:
+            raise ValueError(f"cannot read {value[1:]}: {e.strerror}") from e
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"invalid JSON: {e}") from e
+
+
+def _csv(v):
+    return [x.strip() for x in v.split(",") if x.strip()] if v else None
+
+
 def cmd_save(args):
-    slug = core.save(args.project, args.action, detail=args.detail, result=args.result,
-                     agent=args.agent, pending=args.pending)
-    print(f"saved: {slug} | {args.action}")
+    fields = _json_arg(args.fields_json) or {}
+    if not isinstance(fields, dict):
+        raise ValueError("--fields-json must be a JSON object")
+    unknown = sorted(set(fields) - set(SAVE_FIELDS))
+    if unknown:
+        raise ValueError(f"--fields-json has unknown keys: {', '.join(unknown)} "
+                         f"(allowed: {', '.join(SAVE_FIELDS)})")
+    if args.pending is not None and "pending" in fields:
+        raise ValueError("pending given twice: use --pending or pending in --fields-json, not both")
+    pending = args.pending if args.pending is not None else fields.pop("pending", None)
+    out = core.save_full(args.project, args.action, detail=args.detail, result=args.result,
+                         agent=args.agent, pending=pending,
+                         session=_json_arg(args.session_json), metrics=_json_arg(args.metrics_json),
+                         outcome=args.outcome, closes=_csv(args.closes), **fields)
+    print(core.save_summary(args.action, out))
+
+
+def _pending_line(p: dict) -> str:
+    tail = [str(p.get("owner") or "")]
+    if p.get("waiting_on"):
+        tail.append(str(p["waiting_on"]))
+    if p.get("due"):
+        tail.append(f"due {p['due']}")
+    if p.get("done_check"):
+        tail.append(f"check: {p['done_check']}")
+    text = " ".join(str(p.get("text") or "").split())
+    line = f"[{p['id']}|s{p['severity']}|{(p.get('created') or '')[:10]}] {text} ({', '.join(tail)})"
+    return line + (" — still open?" if p.get("stale") else "")
+
+
+def cmd_pending(args):
+    items = core.open_pending(args.project)
+    if args.json:
+        _json_out(items)
+        return
+    if not items:
+        _fail("no open pending items" + (f" for {core.norm_project(args.project)}" if args.project else ""))
+    for p in items:
+        print(_pending_line(p))
 
 
 def cmd_shelf(args):
@@ -230,6 +297,16 @@ def cmd_drift(args):
         print(drift.format_report(report), end="")
 
 
+def _since(window: str | None) -> str | None:
+    """'7d' -> the ISO date 7 days before today; None stays None."""
+    if not window:
+        return None
+    days = window.rstrip("d")
+    if not days.isdigit():
+        raise ValueError(f"window must look like 7d or 30d, not {window!r}")
+    return (dt.date.fromisoformat(core._today()) - dt.timedelta(days=int(days))).isoformat()
+
+
 def cmd_mine(args):
     from memory_boost import mine
     roots = [Path(r).expanduser() for r in args.root] if args.root else mine.transcript_roots()
@@ -239,10 +316,7 @@ def cmd_mine(args):
     if len(missing) == len(roots):
         _fail("no transcript directory to read",
               fix="memory-boost mine --root ~/.claude/projects   # or set MEMORY_BOOST_TRANSCRIPTS")
-    since = None
-    if args.since:
-        days = int(args.since.rstrip("d"))
-        since = (dt.date.fromisoformat(core._today()) - dt.timedelta(days=days)).isoformat()
+    since = _since(args.since)
     agg = mine.aggregate(mine.scan(roots, since=since, min_turns=args.min_turns))
     if args.json:
         _json_out(agg)
@@ -268,8 +342,18 @@ def cmd_lesson(args):
     from memory_boost import lessons
     body = args.body if args.body != "-" else sys.stdin.read()
     p = lessons.save_lesson(args.name, args.title, args.applies_when.split(","), body,
-                            learned_on=args.learned_on)
+                            learned_on=args.learned_on, cue=args.cue, evidence=args.evidence,
+                            confidence=args.confidence)
     print(f"lesson saved: {p}")
+
+
+def cmd_friction(args):
+    from memory_boost import friction
+    report = friction.report(since=_since(args.since), project=args.project, top=args.top)
+    if args.json:
+        _json_out(report)
+    else:
+        print(friction.format_report(report), end="")
 
 
 def cmd_serve(args):
@@ -309,7 +393,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_serve)
 
     s = sub.add_parser("hook", help="harness hook entry point (reads the event JSON on stdin)")
-    s.add_argument("event", choices=["session-start"])
+    s.add_argument("event", choices=["session-start", "stop", "pre-compact"],
+                   help="stop/pre-compact write an automatic checkpoint from the transcript (no LLM)")
     s.add_argument("--format", choices=["claude", "text"], default="claude",
                    help="claude = hookSpecificOutput envelope; text = plain context")
     s.set_defaults(func=cmd_hook)
@@ -344,8 +429,21 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--agent", default="cli", help="who did it (default: cli)")
     s.add_argument("--result", default="ok", help="ok | partial | failed")
     s.add_argument("--detail", default=None, help="longer markdown detail")
-    s.add_argument("--pending", default=None, help="what is left to do")
+    s.add_argument("--pending", default=None, help="what is left to do (text, split on ';')")
+    s.add_argument("--outcome", default=None, choices=core.OUTCOMES,
+                   help="how the session ended: " + " | ".join(core.OUTCOMES))
+    s.add_argument("--closes", default=None, help="pending ids this session finished, comma-separated")
+    s.add_argument("--session-json", default=None, help="session block as JSON, or @file")
+    s.add_argument("--metrics-json", default=None, help="metrics block as JSON, or @file")
+    s.add_argument("--fields-json", default=None,
+                   help="JSON object with any of: " + ", ".join(SAVE_FIELDS) + " (or @file); "
+                        "pending here is a list of objects")
     s.set_defaults(func=cmd_save)
+
+    s = sub.add_parser("pending", help="open pending items (closes and drops applied)")
+    s.add_argument("--project", default=None, help="only this project")
+    _json_flag(s)
+    s.set_defaults(func=cmd_pending)
 
     s = sub.add_parser("shelf", help="park a dated one-line idea in a wiki page without reading it")
     s.add_argument("text", help="the idea (newlines are flattened)")
@@ -407,7 +505,18 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--applies-when", required=True, help="comma-separated tags")
     s.add_argument("--learned-on", default=None, help="project slug it was learned on")
     s.add_argument("--body", required=True, help="markdown body, or - for stdin")
+    s.add_argument("--cue", default=None, help="the shape of situation it fires on")
+    s.add_argument("--evidence", default=None, help="the observed contrast it rests on")
+    s.add_argument("--confidence", default=None, choices=("high", "medium", "low"),
+                   help="only with --evidence")
     s.set_defaults(func=cmd_lesson)
+
+    s = sub.add_parser("friction", help="setup friction logged by sessions, grouped by cause")
+    s.add_argument("--since", default="7d", help="window, e.g. 7d, 30d (default 7d)")
+    s.add_argument("--project", default=None, help="only this project")
+    s.add_argument("--top", type=int, default=3, help="max proposals (default 3)")
+    _json_flag(s)
+    s.set_defaults(func=cmd_friction)
 
     s = sub.add_parser("index", help="refresh the search index (automatic on recall)")
     s.add_argument("--rebuild", action="store_true", help="drop and rebuild from scratch")

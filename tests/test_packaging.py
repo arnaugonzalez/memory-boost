@@ -102,3 +102,9 @@ def test_plugin_folder_meets_the_directory_checklist():
     prose = re.sub(r"```.*?```", "", (ROOT / "README.md").read_text(encoding="utf-8"), flags=re.S)
     assert len(re.findall(r"[A-Za-z]{2,}", prose)) >= 40
     assert (ROOT / "LICENSE").is_file() and _json(".claude-plugin/plugin.json")["license"] == "MIT"
+
+
+def test_sdist_is_an_allowlist_without_private_dirs():
+    meta = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    allowed = meta["tool"]["hatch"]["build"]["targets"]["sdist"]["only-include"]
+    assert not [a for a in allowed if a.startswith((".planning", ".delega", "social", ".demo"))]

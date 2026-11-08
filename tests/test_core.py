@@ -127,7 +127,7 @@ def test_save_creates_project_page_and_log_entry(home):
     assert (home / "wiki/projects/new-project.md").exists()
     entry = core.parse_log(home / "wiki/log.md")[-1]
     assert (entry["project"], entry["agent"], entry["action"]) == ("new-project", "codex", "first session")
-    assert entry["bullets"] == ["- set up repo", "- Pending: add CI"]
+    assert entry["bullets"] == ["- set up repo", "- Pending: [new-project#1|s3] add CI"]
     events = list((home / "events/codex").glob("*.jsonl"))
     assert json.loads(events[0].read_text().splitlines()[-1])["action"] == "first session"
     assert core.brief("new-project")["project"] == "new-project"
@@ -240,3 +240,15 @@ def test_shelf_flattens_multiline_and_caps_length(home):
 def test_shelved_idea_is_recallable_right_away(home):
     core.shelf("quantize the embedding cache to int8")
     assert any(r["path"].endswith("idea-shelf.md") for r in core.recall("quantize embedding cache"))
+
+
+def test_slug_folds_accents_instead_of_eating_the_letter():
+    assert core.norm_project("Validar código") == "validar-codigo"
+    assert core.norm_project("Ánimo_Año") == "animo-ano"
+    assert core.norm_project("ジ") == ""          # nothing foldable left: still no crash
+
+
+def test_status_aliases_cover_common_adr_values():
+    for raw, want in [("accepted", "current"), ("Active", "current"), ("proposed", "review"),
+                      ("vigente", "current"), ("superseded", "superseded"), ("weird", None)]:
+        assert core._status({"status": raw}) == want

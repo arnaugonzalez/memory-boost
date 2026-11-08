@@ -18,18 +18,18 @@ local files; nothing is sent anywhere. The optional semantic recall talks only t
 ## 2. Install the CLI (pinned)
 
 ```bash
-uv tool install memory-boost==0.2.0
-memory-boost --version          # expect: memory-boost 0.2.0
+uv tool install memory-boost==0.2.1
+memory-boost --version          # expect: memory-boost 0.2.1
 ```
 
 Check which binary the harness will run: `command -v memory-boost` must be inside `uv tool dir --bin`
-and `memory-boost --version` must print 0.2.0. If it is not found, or another `memory-boost` comes
+and `memory-boost --version` must print 0.2.1. If it is not found, or another `memory-boost` comes
 first on PATH, put the absolute path `$(uv tool dir --bin)/memory-boost` in the MCP config below
 instead of `memory-boost` (or ask the user before running `uv tool update-shell`).
 
-Without installing anything permanently, use `uvx memory-boost==0.2.0 <command>` instead of
+Without installing anything permanently, use `uvx memory-boost==0.2.1 <command>` instead of
 `memory-boost <command>` everywhere below (MCP config: command `uvx`, args
-`["--quiet", "memory-boost==0.2.0", "serve"]`).
+`["--quiet", "memory-boost==0.2.1", "serve"]`).
 
 ## 3. Create the memory home
 
@@ -113,7 +113,7 @@ printf '%s\n' \
 
 For the HTTP server: `curl -s -X POST http://127.0.0.1:8765/mcp -H 'Content-Type: application/json'
 -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"check","version":"0"}}}'`
-returns `"serverInfo":{"name":"memory-boost","version":"0.2.0"}`.
+returns `"serverInfo":{"name":"memory-boost","version":"0.2.1"}`.
 
 The MCP tools: `memory_brief`, `memory_recall`, `memory_page`, `memory_save`, `memory_checkpoint`,
 `memory_resume`, `memory_drift`, `memory_lesson`, `memory_shelf`.
@@ -126,11 +126,16 @@ rules), after asking the user:
 > At session start call `memory_brief` (MCP server `memory`) and follow it. Record decisions with
 > `memory_save`; before `/compact` or a long pause, call `memory_checkpoint`.
 
-Claude Code without the plugin can also inject the brief automatically with a SessionStart hook in
+Claude Code without the plugin can also inject the brief automatically with a SessionStart hook, and keep an automatic
+checkpoint with Stop and PreCompact hooks (no LLM calls), in
 `~/.claude/settings.json` (global: ask first):
 
 ```json
-{ "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "memory-boost hook session-start" } ] } ] } }
+{ "hooks": {
+  "SessionStart": [ { "hooks": [ { "type": "command", "command": "memory-boost hook session-start" } ] } ],
+  "Stop":         [ { "hooks": [ { "type": "command", "command": "memory-boost hook stop", "timeout": 10 } ] } ],
+  "PreCompact":   [ { "hooks": [ { "type": "command", "command": "memory-boost hook pre-compact", "timeout": 20 } ] } ]
+} }
 ```
 
 ## 7. Report back

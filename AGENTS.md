@@ -8,8 +8,8 @@ set it up or run it for them) and **Develop** (you are changing this repo).
 ## Use: run memory-boost for a person
 
 ```bash
-uv tool install memory-boost==0.2.0        # or: pipx install memory-boost==0.2.0
-memory-boost --version                     # expect: memory-boost 0.2.0
+uv tool install memory-boost==0.2.1        # or: pipx install memory-boost==0.2.1
+memory-boost --version                     # expect: memory-boost 0.2.1
 memory-boost init --example                # sample wiki + synthetic transcripts (empty home only)
 memory-boost drift                         # what in the wiki is stale, orphaned or never written down
 memory-boost mine                          # digest of the person's real ~/.claude/projects (aggregates only)
@@ -41,7 +41,8 @@ Commands you will use:
 | `recall "<query>" [--project P]` | full-text search over wiki and log |
 | `save --project P --action "..." [--pending "..."]` | record a session event + `log.md` entry |
 | `checkpoint --project P --session ID --task "..." [--done "a\|\|b"] [--next "..."]` | mid-session state; lists split by `\|\|` |
-| `lesson --name N --title T --applies-when W --body B` | a lesson that travels to other projects |
+| `lesson --name N --title T --applies-when W --body B [--evidence E --confidence C]` | a lesson that travels to other projects |
+| `friction [--since 7d] [--project P] [--json]` | setup friction from saved sessions, grouped by cause (max 3 proposals) |
 
 Environment (all optional):
 
@@ -51,6 +52,9 @@ Environment (all optional):
 | `MEMORY_BOOST_WIKI` | use an existing markdown wiki instead of `$MEMORY_BOOST_HOME/wiki` |
 | `MEMORY_BOOST_TRANSCRIPTS` | transcript roots for `mine`, `:`-separated |
 | `MEMORY_BOOST_SEMANTIC=1` | vector recall; needs `memory-boost[semantic]` and a local Ollama |
+| `MEMORY_BOOST_AUTOSAVE_SECS` / `_TURNS` | `hook stop` throttle (600 s / 4 prompts) |
+
+Full list with defaults: README → Configuration.
 
 Rules:
 
@@ -71,7 +75,7 @@ scripts/render-demo.sh         # re-renders docs/demo.gif from docs/demo.tape (d
 ```
 
 Map: `cli.py` (argparse entry point), `core.py` (wiki, log, checkpoints, recall, brief),
-`drift.py`, `mine.py`, `lessons.py`, `server.py` (MCP tools), `semantic.py` (optional sqlite-vec
+`drift.py`, `mine.py`, `lessons.py`, `friction.py`, `server.py` (MCP tools), `semantic.py` (optional sqlite-vec
 recall). Sample data in `src/memory_boost/example_wiki/` and `example_transcripts/`.
 
 Invariants:

@@ -84,7 +84,7 @@ def test_deterministic_output(home):
 def test_drift_mine_lessons_cli(home):
     r = run(["drift"])
     assert r.returncode == 0 and "pin-postgres-15" in r.stdout
-    assert json.loads(run(["drift", "--json"]).stdout)["totals"]["findings"] == 5
+    assert json.loads(run(["drift", "--json"]).stdout)["totals"]["findings"] == 6
     assert run(["drift", "--project", "pixel-notes"]).stdout.startswith("- project-no-decisions")
     assert run(["drift", "--project", "nope"]).stdout.strip() == "(nothing drifted)"
     root = str(resources.files("memory_boost") / "example_transcripts")

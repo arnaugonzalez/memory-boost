@@ -26,6 +26,10 @@ async def _session_calls():
         out["brief"] = await s.call_tool("memory_brief", {"project": "acme-api"})
         out["save"] = await s.call_tool("memory_save", {"project": "acme-api", "action": "mcp probe",
                                                         "agent": "test"})
+        out["save_v2"] = await s.call_tool("memory_save", {
+            "project": "acme-api", "action": "mcp v2", "agent": "test", "outcome": "progress",
+            "pending": [{"text": "x", "owner": "client", "severity": 2, "waiting_on": "org:acme"}],
+            "closes": []})
         out["recall"] = await s.call_tool("memory_recall", {"query": "mcp probe"})
         out["page"] = await s.call_tool("memory_page", {"name": "acme-api", "section": "gotchas"})
         out["ckpt"] = await s.call_tool("memory_checkpoint", {"project": "acme-api", "session_id": "t1",
@@ -50,6 +54,7 @@ def test_all_tools_over_stdio(home):
     assert tools["memory_save"].inputSchema["required"] == ["project", "action"]
     assert "acme-api — context" in text(out["brief"])
     assert text(out["save"]) == "saved: acme-api | mcp probe"
+    assert text(out["save_v2"]).startswith("saved: acme-api | mcp v2 | pending: acme-api#1")
     assert "mcp probe" in text(out["recall"])
     assert "integer cents" in text(out["page"])
     assert "done=1" in text(out["ckpt"])

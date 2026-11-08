@@ -92,8 +92,8 @@ def drift_report(today: str | None = None) -> dict:
     # 3. checkpoints left open
     open_ckpts = 0
     for c in core.list_checkpoints(include_done=True):
-        if c.get("status") == "done":
-            continue
+        if c.get("status") == "done" or c.get("agent") == "auto-hook":
+            continue  # an auto-only checkpoint is a safety net, not a claim of open work
         open_ckpts += 1
         age = _days_between(c["updated"][:10], today)
         if age > OPEN_CHECKPOINT_DAYS:
@@ -101,9 +101,29 @@ def drift_report(today: str | None = None) -> dict:
                              "title": c["session_id"][:8], "detail": f"'{c['task'][:60]}' open for "
                              f"{age} days; finish it or mark done"})
 
+    # 4. lessons: unproven ones, and projects no lesson can reach (no tags)
+    n_lessons = 0
+    for p in sorted((w / "concepts").glob("*.md")):
+        meta, _ = core.parse_frontmatter(p.read_text(encoding="utf-8"))
+        if not parse_tags(meta, "applies_when"):
+            continue
+        n_lessons += 1
+        if not meta.get("evidence"):
+            learned = core.norm_project(meta.get("learned_on", "")) or None
+            findings.append({"kind": "lesson-unproven", "severity": 3, "project": learned,
+                             "title": p.stem, "detail": "no evidence: add the observed contrast it "
+                             "rests on, narrow it, or delete it"})
+    if n_lessons:
+        for pr in projects:
+            meta, _ = core.parse_frontmatter((w / "projects" / f"{pr}.md").read_text(encoding="utf-8"))
+            if not parse_tags(meta):
+                findings.append({"kind": "project-no-tags", "severity": 3, "project": pr, "title": pr,
+                                 "detail": f"no tags: none of the {core.plural(n_lessons, 'lesson')} "
+                                 "from other projects can reach it"})
+
     findings.sort(key=lambda f: (f["severity"], f["kind"], f["title"]))
     totals = {"decisions": len(decisions), "projects": len(projects), "log_entries": len(entries),
-              "open_checkpoints": open_ckpts, "findings": len(findings)}
+              "open_checkpoints": open_ckpts, "lessons": n_lessons, "findings": len(findings)}
     return {"today": today, "findings": findings, "totals": totals}
 
 
@@ -140,6 +160,6 @@ def next_command(finding: dict) -> str:
     """The exact command an agent should run to act on a finding."""
     if finding["kind"] == "checkpoint-open":
         return f"memory-boost checkpoints --project {finding['project']}"
-    if finding["kind"].startswith("decision"):
+    if finding["kind"].startswith(("decision", "lesson")):
         return f"memory-boost page {finding['title']}"
     return f"memory-boost page {finding['project']}"

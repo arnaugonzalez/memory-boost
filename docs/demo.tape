@@ -11,7 +11,7 @@ Set Theme "GitHub Dark"
 Set TypingSpeed 30ms
 
 Hide
-Type "unset MEMORY_BOOST_HOME MEMORY_BOOST_CHECKPOINTS MEMORY_BOOST_WIKI MEMORY_BOOST_INDEX XDG_DATA_HOME XDG_CACHE_HOME; export PATH=/vhs/.demo/bin:/usr/bin:/bin HOME=/tmp/h PS1='$ ' && cd ~ && memory-boost init --example >/dev/null && clear" Enter
+Type "unset MEMORY_BOOST_HOME MEMORY_BOOST_CHECKPOINTS MEMORY_BOOST_WIKI MEMORY_BOOST_INDEX XDG_DATA_HOME XDG_CACHE_HOME; export PATH=/vhs/.demo/bin:/usr/bin:/bin HOME=/tmp/h PS1='$ ' && mkdir -p ~ && cd ~ && memory-boost init --example >/dev/null && clear" Enter
 Sleep 3s
 Show
 

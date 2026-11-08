@@ -1,16 +1,30 @@
 {
   "name": "memory-boost",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Markdown memory your coding agent reads and writes over MCP, with drift reports that flag stale decisions and local digests of your own sessions. Everything stays in a local folder.",
-  "author": { "name": "Arnau González", "url": "https://github.com/arnaugonzalez" },
+  "author": {
+    "name": "Arnau González",
+    "url": "https://github.com/arnaugonzalez"
+  },
   "homepage": "https://github.com/arnaugonzalez/memory-boost",
   "repository": "https://github.com/arnaugonzalez/memory-boost",
   "license": "MIT",
-  "keywords": ["memory", "mcp", "drift", "retrospective", "session-analytics", "context"],
+  "keywords": [
+    "memory",
+    "mcp",
+    "drift",
+    "retrospective",
+    "session-analytics",
+    "context"
+  ],
   "mcpServers": {
     "memory": {
       "command": "uvx",
-      "args": ["--quiet", "memory-boost==0.2.0", "serve"]
+      "args": [
+        "--quiet",
+        "memory-boost==0.2.1",
+        "serve"
+      ]
     }
   },
   "hooks": {
@@ -19,8 +33,30 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uvx --quiet memory-boost==0.2.0 hook session-start",
+            "command": "uvx --quiet memory-boost==0.2.1 hook session-start",
             "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx --quiet memory-boost==0.2.1 hook stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uvx --quiet memory-boost==0.2.1 hook pre-compact",
+            "timeout": 20
           }
         ]
       }
