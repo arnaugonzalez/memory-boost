@@ -9,13 +9,20 @@ the agent wrote (task, done, next, notes) is never overwritten.
 Stop is throttled: it writes only when something changed AND either
 MEMORY_BOOST_AUTOSAVE_SECS (default 600) passed or MEMORY_BOOST_AUTOSAVE_TURNS
 (default 4) prompts accumulated. PreCompact always writes: it is the last
-chance before the context is summarised away. Stdlib only, like the hook path."""
+chance before the context is summarised away. Stdlib only, like the hook path.
+
+With MEMORY_BOOST_AUTOSAVE_LOG=1 each written checkpoint also upserts one
+`auto` entry per session in wiki/log.md (replaced in place on every write, so a
+session never adds more than one entry). With MEMORY_BOOST_AUTOSAVE_PUSH set to
+a shell command, that command then runs detached (the hook must not wait on the
+network); its output goes to autosave-push.log in the checkpoints directory."""
 from __future__ import annotations
 
 import datetime as dt
 import json
 import os
 import re
+import subprocess
 from pathlib import Path
 
 from memory_boost import core
@@ -23,7 +30,8 @@ from memory_boost import core
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 PRIVATE = re.compile(r"<private>.*?</private>", re.S | re.I)
 NOISE_PREFIXES = ("<command-", "<local-command", "<system-reminder", "<task-notification",
-                  "Caveat:", "[Request interrupted")
+                  "Caveat:", "[Request interrupted",
+                  "This session is being continued from a previous conversation")
 COMMIT_MSG = re.compile(r"""git\s+commit\b.*?-m\s+(?:"([^"]+)"|'([^']+)'|\$\(cat\s+<<'?EOF'?\s*\n([^\n]+))""",
                         re.S)
 PROMPT_CAP = 160
@@ -96,7 +104,7 @@ def read_delta(transcript: Path, offset: int, cwd: str) -> tuple[dict, int]:
                 elif b.get("name") == "Bash":
                     m = COMMIT_MSG.search(inp.get("command", ""))
                     if m:
-                        facts["commits"].append(next(g for g in m.groups() if g).strip()[:PROMPT_CAP])
+                        facts["commits"].append(next(g for g in m.groups() if g).strip().splitlines()[0][:PROMPT_CAP])
     return facts, offset + end
 
 
@@ -159,4 +167,35 @@ def autosave(event: dict, trigger: str) -> dict | None:
             "files": sorted(set(facts["files"])), "notes": [], "plan_ref": None, "auto": auto,
         }
     core.write_checkpoint(project, sid, ckpt)
+    if os.environ.get("MEMORY_BOOST_AUTOSAVE_LOG") == "1":
+        core.upsert_session_log(ckpt["project"], sid, _log_bullets(ckpt))
+        _push()
     return ckpt
+
+
+def _log_bullets(ckpt: dict) -> list[str]:
+    auto = ckpt["auto"]
+    bullets = [f"Task: {ckpt['task']}"] if ckpt.get("task") else []
+    if ckpt.get("done"):
+        bullets.append("Done: " + "; ".join(ckpt["done"][-5:]))
+    if ckpt.get("next"):
+        bullets.append(f"Next: {ckpt['next']}")
+    if auto.get("recent_prompts"):
+        bullets.append("Last prompts: " + " / ".join(auto["recent_prompts"]))
+    if auto.get("files_edited"):
+        files = auto["files_edited"]
+        bullets.append(f"Files ({len(files)}): " + ", ".join(Path(f).name for f in files[-10:]))
+    if auto.get("commits"):
+        bullets.append("Commits: " + "; ".join(auto["commits"][-5:]))
+    bullets.append(f"Turns: {auto.get('turns', 0)} · last autosave {auto['at']} ({auto['trigger']})")
+    return bullets
+
+
+def _push() -> None:
+    cmd = os.environ.get("MEMORY_BOOST_AUTOSAVE_PUSH")
+    if not cmd:
+        return
+    core.checkpoints_dir().mkdir(parents=True, exist_ok=True)
+    with open(core.checkpoints_dir() / "autosave-push.log", "ab") as out:
+        subprocess.Popen(cmd, shell=True, stdin=subprocess.DEVNULL, stdout=out, stderr=out,
+                         start_new_session=True)

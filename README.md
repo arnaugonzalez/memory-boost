@@ -277,6 +277,8 @@ The query set is not published.
 | `MEMORY_BOOST_TZ` | `UTC` | IANA zone for `date_local` in events (e.g. `Europe/Madrid`) |
 | `MEMORY_BOOST_AUTOSAVE_SECS` | `600` | `hook stop`: minimum seconds between automatic checkpoints |
 | `MEMORY_BOOST_AUTOSAVE_TURNS` | `4` | `hook stop`: or this many new prompts, whichever comes first |
+| `MEMORY_BOOST_AUTOSAVE_LOG` | unset | `1`: each automatic checkpoint also upserts one `auto` entry per session in `wiki/log.md` |
+| `MEMORY_BOOST_AUTOSAVE_PUSH` | unset | shell command run detached after that log write (e.g. a `git push` script); output in `checkpoints/autosave-push.log` |
 | `MEMORY_BOOST_SEMANTIC` | unset | `1` enables vector recall (needs `memory-boost[semantic]` + Ollama) |
 | `MEMORY_BOOST_RECALL_MODE` | `fts` (`hybrid` with semantic) | `fts`, `semantic` or `hybrid` |
 | `MEMORY_BOOST_EMBED_MODEL` | `embeddinggemma` | Ollama embedding model |

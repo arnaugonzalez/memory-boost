@@ -924,6 +924,34 @@ def append_log(project: str, agent: str, action: str, bullets: list[str] | None 
         f.write("\n" + "\n".join(lines) + "\n")
 
 
+AUTO_MARK = "- Auto-session: "
+
+
+def upsert_session_log(project: str, session_id: str, bullets: list[str]) -> None:
+    """Write the single `auto` log.md entry of a session: replace it in place when it
+    exists (found by its Auto-session line), append it otherwise. Only that entry's
+    lines change, so entries written by hand or by save() are never touched."""
+    project = safe_slug(project, "project")
+    header = f"## [{_today()}] auto | {project} | session {session_id[:8]} (autosave)"
+    block = [header, f"{AUTO_MARK}{_one_line(session_id)}"] + [
+        f"- {_one_line(b)}" for b in bullets if b.strip()]
+    log = wiki_dir() / "log.md"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    lines = log.read_text(encoding="utf-8").split("\n") if log.exists() else []
+    mark = f"{AUTO_MARK}{_one_line(session_id)}"
+    starts = [i for i, ln in enumerate(lines) if LOG_HEADER_LOOSE_RE.match(ln)]
+    for n, start in enumerate(starts):
+        end = starts[n + 1] if n + 1 < len(starts) else len(lines)
+        if mark in lines[start:end]:
+            while end > start and not lines[end - 1].strip():
+                end -= 1
+            lines[start:end] = block
+            log.write_text("\n".join(lines), encoding="utf-8")
+            return
+    with open(log, "a", encoding="utf-8") as f:
+        f.write("\n" + "\n".join(block) + "\n")
+
+
 def _only_open(closes, drops):
     """Keep the ids of `closes`/`drops` that are open right now; the rest is reported, not written,
     so a stale or mistyped id cannot mark nothing as done nor hide a real close."""

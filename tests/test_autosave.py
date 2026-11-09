@@ -103,3 +103,56 @@ def test_drift_ignores_auto_only_checkpoints(home, tmp_path):
     _write(t, [_rec("user", "go")])
     autosave.autosave(_event(tmp_path, t), "pre-compact")
     assert drift.drift_report()["totals"]["open_checkpoints"] == 0
+
+
+def test_autosave_log_upserts_one_entry_per_session(home, tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_BOOST_AUTOSAVE_LOG", "1")
+    monkeypatch.delenv("MEMORY_BOOST_AUTOSAVE_PUSH", raising=False)
+    log = core.wiki_dir() / "log.md"
+    log.write_text("# Log\n\n## [2026-01-01] gsd | acme-api | earlier work\n- kept\n", encoding="utf-8")
+    t = tmp_path / "t.jsonl"
+    cwd = tmp_path / "acme-api"
+    _write(t, [_rec("user", "first ask"), _tool("Edit", file_path=str(cwd / "a.py"))])
+    autosave.autosave(_event(tmp_path, t), "pre-compact")
+    core.save("acme-api", "manual save in between")
+    _write(t, [_rec("user", "second ask"), _tool("Edit", file_path=str(cwd / "b.py"))])
+    autosave.autosave(_event(tmp_path, t), "pre-compact")
+    text = log.read_text(encoding="utf-8")
+    assert text.count("Auto-session: s1") == 1
+    assert "second ask" in text and "b.py" in text and "- kept" in text
+    assert "manual save in between" in text
+    entries = core.parse_log(log)
+    assert [e["agent"] for e in entries if e.get("agent")] == ["gsd", "auto", "mcp"]
+    assert not core.log_problems(entries)
+
+
+def test_autosave_push_runs_detached(home, tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_BOOST_AUTOSAVE_LOG", "1")
+    flag = tmp_path / "pushed"
+    monkeypatch.setenv("MEMORY_BOOST_AUTOSAVE_PUSH", f"touch {flag}")
+    t = tmp_path / "t.jsonl"
+    _write(t, [_rec("user", "ask"), _tool("Edit", file_path=str(tmp_path / "acme-api" / "a.py"))])
+    autosave.autosave(_event(tmp_path, t), "pre-compact")
+    import time
+    for _ in range(50):
+        if flag.exists():
+            break
+        time.sleep(0.05)
+    assert flag.exists()
+
+
+def test_autosave_without_log_env_leaves_log_alone(home, tmp_path, monkeypatch):
+    monkeypatch.delenv("MEMORY_BOOST_AUTOSAVE_LOG", raising=False)
+    t = tmp_path / "t.jsonl"
+    _write(t, [_rec("user", "ask"), _tool("Edit", file_path=str(tmp_path / "acme-api" / "a.py"))])
+    autosave.autosave(_event(tmp_path, t), "pre-compact")
+    log = core.wiki_dir() / "log.md"
+    assert not log.exists() or "Auto-session" not in log.read_text(encoding="utf-8")
+
+
+def test_continuation_summary_and_commit_trailers_are_not_kept(home, tmp_path):
+    t = tmp_path / "t.jsonl"
+    _write(t, [_rec("user", "This session is being continued from a previous conversation that ran out"),
+               _tool("Bash", command="git commit -m \"fix: x\n\nCo-Authored-By: Bot <b@x>\"")])
+    facts, _ = autosave.read_delta(t, 0, str(tmp_path))
+    assert facts["prompts"] == [] and facts["commits"] == ["fix: x"]
