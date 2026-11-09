@@ -8,7 +8,7 @@ the agent wrote (task, done, next, notes) is never overwritten.
 
 Stop is throttled: it writes only when something changed AND either
 MEMORY_BOOST_AUTOSAVE_SECS (default 600) passed or MEMORY_BOOST_AUTOSAVE_TURNS
-(default 4) prompts accumulated. PreCompact always writes: it is the last
+(default 4; 0 turns this trigger off) prompts accumulated. PreCompact always writes: it is the last
 chance before the context is summarised away. Stdlib only, like the hook path.
 
 With MEMORY_BOOST_AUTOSAVE_LOG=1 each written checkpoint also upserts one
@@ -36,6 +36,7 @@ COMMIT_MSG = re.compile(r"""git\s+commit\b.*?-m\s+(?:"([^"]+)"|'([^']+)'|\$\(cat
                         re.S)
 PROMPT_CAP = 160
 RECENT_PROMPTS = 4
+QUICK_PROMPTS = 4  # a session with fewer prompts and no edits is a quick question
 LIST_CAP = 30
 
 
@@ -136,12 +137,13 @@ def autosave(event: dict, trigger: str) -> dict | None:
     if trigger == "stop":
         if not changed:
             return None
-        if not prev and not (facts["files"] or facts["commits"]) and len(prompts) < turns_due:
+        if not prev and not (facts["files"] or facts["commits"]) and len(prompts) < QUICK_PROMPTS:
             return None  # a quick question: no checkpoint until the session does real work
         last = auto.get("at")
         elapsed = (now - dt.datetime.strptime(last, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.UTC)
                    ).total_seconds() if last else float("inf")
-        if elapsed < _env_int("MEMORY_BOOST_AUTOSAVE_SECS", 600) and len(prompts) < turns_due:
+        if elapsed < _env_int("MEMORY_BOOST_AUTOSAVE_SECS", 600) and not (
+                0 < turns_due <= len(prompts)):
             return None
     elif prev and not changed:
         return None

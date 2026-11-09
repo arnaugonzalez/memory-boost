@@ -156,3 +156,12 @@ def test_continuation_summary_and_commit_trailers_are_not_kept(home, tmp_path):
                _tool("Bash", command="git commit -m \"fix: x\n\nCo-Authored-By: Bot <b@x>\"")])
     facts, _ = autosave.read_delta(t, 0, str(tmp_path))
     assert facts["prompts"] == [] and facts["commits"] == ["fix: x"]
+
+
+def test_turns_zero_means_time_only(home, tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_BOOST_AUTOSAVE_TURNS", "0")
+    t = tmp_path / "t.jsonl"
+    _write(t, [_rec("user", "a"), _tool("Edit", file_path=str(tmp_path / "acme-api" / "a.py"))])
+    assert autosave.autosave(_event(tmp_path, t), "stop") is not None
+    _write(t, [_rec("user", p) for p in ("b", "c", "d", "e", "f")])
+    assert autosave.autosave(_event(tmp_path, t), "stop") is None
