@@ -58,7 +58,8 @@ def drift_report(today: str | None = None) -> dict:
         elif status in (None, "current") and not review_by:
             findings.append({"kind": "decision-no-review", "severity": 3, "project": project,
                              "title": p.stem, "detail": "no review_by: it will never come up for review"})
-        if (status == "superseded" or core.SUPERSEDED_RE.search(body)) and not meta.get("superseded_by"):
+        worded_superseded = status is None and core.SUPERSEDED_RE.search(body)
+        if (status == "superseded" or worded_superseded) and not meta.get("superseded_by"):
             findings.append({"kind": "decision-superseded-orphan", "severity": 2, "project": project,
                              "title": p.stem,
                              "detail": "marked superseded but no superseded_by: points nowhere"})

@@ -43,6 +43,16 @@ def test_superseded_without_successor_is_an_orphan(home):
     assert "decision-superseded-orphan" in kinds(drift.drift_report(today=TODAY))
 
 
+def test_explicit_current_status_beats_superseded_wording(home):
+    # Prose like "ya no aplica al local" in a still-valid decision must not flag it once status says so.
+    p = core.wiki_dir() / "decisions" / "queue-in-postgres.md"
+    p.write_text(p.read_text().replace("review_by: 2027-03-01\n", "status: current\nreview_by: 2027-03-01\n")
+                 + "\n## Historia\nLa cola en Redis ya no aplica.\n")
+    hits = [f for f in drift.drift_report(today=TODAY)["findings"] if f["title"] == "queue-in-postgres"]
+    assert not hits
+    assert core._freshness("decision", "q", p.read_text(), {"status": "current"}, False) == "current"
+
+
 def test_missing_review_by_is_low_severity(home):
     p = core.wiki_dir() / "decisions" / "queue-in-postgres.md"
     p.write_text(p.read_text().replace("review_by: 2027-03-01\n", ""))

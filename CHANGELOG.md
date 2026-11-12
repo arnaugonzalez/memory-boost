@@ -1,5 +1,11 @@
 # Changelog
 
+## unreleased
+
+- `drift` and recall freshness: an explicit `status:` on a decision now wins over
+  superseded-sounding words in its prose ("ya no aplica", "desactualizada"), which raised
+  false `decision-superseded-orphan` findings.
+
 ## 0.2.1 — 2026-11-08
 
 - Lessons carry optional `cue`, `evidence` and `confidence` (high | medium | low; only with evidence), after Harness² (arXiv 2610.14224). `memory_lesson` and `memory-boost lesson --cue --evidence --confidence`. The brief marks lessons without evidence as `unproven`.

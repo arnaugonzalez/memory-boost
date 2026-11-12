@@ -182,6 +182,8 @@ def _status(meta: dict) -> str | None:
 def _freshness(kind: str, title: str | None, body: str, meta: dict, is_history: bool) -> str:
     if is_history:
         return "historic"
+    if kind == "decision" and (status := _status(meta)):
+        return status
     if SUPERSEDED_RE.search(body):
         return "superseded"
     t = (title or "").lower()
