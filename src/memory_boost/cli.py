@@ -356,6 +356,17 @@ def cmd_friction(args):
         print(friction.format_report(report), end="")
 
 
+def cmd_reflect(args):
+    from memory_boost import reflect
+    res = reflect.reflect_candidates(since=_since(args.since), min_sessions=args.min_sessions, min_projects=args.min_projects)
+    if args.apply:
+        reflect.apply_candidates(res)
+    if args.json:
+        _json_out(res)
+    else:
+        print(reflect.format_reflection(res), end="")
+
+
 def cmd_serve(args):
     from memory_boost.server import main as serve  # imports `mcp` only when serving
     serve(http=args.http, host=args.host, port=args.port)
@@ -517,6 +528,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--top", type=int, default=3, help="max proposals (default 3)")
     _json_flag(s)
     s.set_defaults(func=cmd_friction)
+
+    s = sub.add_parser("reflect", help="distill recurring friction/drops into lesson drafts (dry-run by default)")
+    s.add_argument("--since", default=None, help="window, e.g. 14d, 30d")
+    s.add_argument("--min-projects", type=int, default=2, help="min affected projects (default 2)")
+    s.add_argument("--min-sessions", type=int, default=2, help="min sessions with fix (default 2)")
+    s.add_argument("--apply", action="store_true", help="write lesson drafts into wiki/concepts/")
+    _json_flag(s)
+    s.set_defaults(func=cmd_reflect)
 
     s = sub.add_parser("index", help="refresh the search index (automatic on recall)")
     s.add_argument("--rebuild", action="store_true", help="drop and rebuild from scratch")
