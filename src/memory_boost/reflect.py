@@ -17,12 +17,18 @@ def _slug(text: str) -> str:
     return (s or "lesson")[:48].strip("-")
 
 
+# Tags every project page carries: they would make a lesson match everything.
+GENERIC_TAGS = {"project", "active", "local", "general"}
+
+
 def _tags_for_projects(projects: list[str]) -> list[str]:
-    tags: set[str] = set()
+    """Tags shared by all source projects (the context the lesson was really seen in), else the projects."""
+    shared: set[str] | None = None
     for p in projects:
-        tags |= lessons.project_tags(p)
-    if tags:
-        return sorted(tags)
+        tags = lessons.project_tags(p) - GENERIC_TAGS
+        shared = tags if shared is None else shared & tags
+    if shared:
+        return sorted(shared)
     return sorted({core.norm_project(p) for p in projects if p and p != "?"})
 
 
@@ -33,7 +39,8 @@ def _covered_by_existing(cause: str, title: str, existing: list[dict]) -> str | 
     for item in existing:
         ex_name = core.norm_project(item.get("name", ""))
         ex_title = core.norm_project(item.get("title", ""))
-        if ex_name == slug or ex_name == norm_cause or norm_cause in ex_name or norm_cause in ex_title or norm_title == ex_title:
+        # Exact matches only: a substring test let a short cause («git») shadow unrelated lessons.
+        if ex_name in (slug, norm_cause) or (norm_title and norm_title == ex_title):
             return item.get("name")
     return None
 
@@ -71,12 +78,19 @@ def reflect_candidates(since: str | None = None, min_sessions: int = 2, min_proj
     fric = friction.report(since=since, top=50)
     existing = lessons.all_lessons()
     candidates: list[dict] = []
+    project_fixes: list[dict] = []
     skipped_existing: list[dict] = []
     seen_slugs: set[str] = set()
 
     for p in fric["proposals"]:
         has_fix = bool(p.get("fixes"))
-        if len(p["projects"]) < min_projects and not (p["sessions"] >= min_sessions and has_fix):
+        if p["sessions"] < min_sessions:
+            continue
+        if len(p["projects"]) < min_projects:
+            # Repeated in one project: a fix for that project, not a lesson that travels.
+            if has_fix:
+                project_fixes.append({"cause": p["cause"], "project": p["projects"][0] if p["projects"] else "?",
+                                      "sessions": p["sessions"], "fix": p["fixes"][0]})
             continue
         cause = p["cause"]
         name = _slug(cause)
@@ -114,7 +128,7 @@ def reflect_candidates(since: str | None = None, min_sessions: int = 2, min_proj
         })
 
     for d in _collect_drops(since):
-        if len(d["projects"]) < min_projects and d["sessions"] < min_sessions:
+        if len(d["projects"]) < min_projects or d["sessions"] < min_sessions:
             continue
         pat = d["pattern"]
         name = _slug(f"drop-{pat}")
@@ -148,6 +162,7 @@ def reflect_candidates(since: str | None = None, min_sessions: int = 2, min_proj
         "min_projects": min_projects,
         "signals": fric["signals"],
         "candidates": candidates,
+        "project_fixes": project_fixes,
         "skipped_existing": skipped_existing,
         "applied": [],
     }
@@ -185,6 +200,10 @@ def format_reflection(res: dict) -> str:
         lines.append(f"- source: {c['source']} · applies_when: [{', '.join(c['applies_when'])}]")
         lines.append(f"- evidence: {c['evidence']}")
         lines.append(f"- cue: {c['cue']}")
+        lines.append("")
+    if res.get("project_fixes"):
+        lines.append("Repeated in a single project (fix there, not a lesson):")
+        lines.extend(f"- {f['project']}: {f['cause']} ({f['sessions']} sessions) → {f['fix']}" for f in res["project_fixes"])
         lines.append("")
     if res.get("applied"):
         lines.append("Applied lessons:")

@@ -112,3 +112,45 @@ def test_reflect_cli_json_and_apply(home, capsys):
     applied = json.loads(capsys.readouterr().out)
     assert len(applied["applied"]) == 1
     assert (core.wiki_dir() / "concepts" / "verify-schema-early.md").exists()
+
+
+def _friccion(project: str, session: str, cause: str, fix: str = "") -> dict:
+    item = {"what": f"{cause}@{session}", "kind": "tool", "cause": cause}
+    if fix:
+        item["fix"] = fix
+    return {"ts": "2026-09-24T10:00:00Z", "date_local": "2026-09-24", "project": project,
+            "session": {"id": session}, "friction": [item]}
+
+
+def _project_page(name: str, tags: list[str]) -> None:
+    p = core.wiki_dir() / "projects" / f"{name}.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(f"---\ntitle: {name}\ntags: [{', '.join(tags)}]\n---\n# {name}\n", encoding="utf-8")
+
+
+def test_reflect_single_project_fix_is_not_a_lesson(home):
+    _write_events(home, "claude", [_friccion("acme-api", f"s{i}", "worktree-lost", "Recover from transcript")
+                                   for i in range(3)])
+    res = reflect.reflect_candidates()
+    assert res["candidates"] == []
+    assert res["project_fixes"] == [{"cause": "worktree-lost", "project": "acme-api", "sessions": 3,
+                                     "fix": "Recover from transcript"}]
+    assert "fix there, not a lesson" in reflect.format_reflection(res)
+
+
+def test_reflect_applies_when_uses_shared_specific_tags(home):
+    _project_page("acme-api", ["project", "active", "python", "vps", "n8n"])
+    _project_page("pixel-notes", ["project", "python", "expo"])
+    _write_events(home, "claude", [_friccion("acme-api", "s1", "uv-cache-full", "Prune uv cache"),
+                                   _friccion("pixel-notes", "s2", "uv-cache-full", "Prune uv cache")])
+    cand = reflect.reflect_candidates()["candidates"][0]
+    assert cand["applies_when"] == ["python"]
+
+
+def test_reflect_short_cause_does_not_shadow_unrelated_lesson(home):
+    lessons.save_lesson("git-worktree-cleanup", "Remove stale worktrees", ["git"], "Body.\n",
+                        learned_on="acme-api", evidence="seen", confidence="high")
+    _write_events(home, "claude", [_friccion("acme-api", "s1", "git", "Configure git identity"),
+                                   _friccion("pixel-notes", "s2", "git", "Configure git identity")])
+    res = reflect.reflect_candidates()
+    assert [c["name"] for c in res["candidates"]] == ["git"]
